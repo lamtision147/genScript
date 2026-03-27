@@ -1,0 +1,16 @@
+import { NextResponse } from "next/server";
+import { createSessionAsync, loginWithPasswordAsync, sanitizeUser } from "@/lib/server/auth-service";
+import { createSessionJsonResponse } from "@/lib/server/session-response";
+
+export async function POST(request) {
+  try {
+    const payload = await request.json();
+    const email = String(payload.email || "").trim().toLowerCase();
+    const password = String(payload.password || "").trim();
+    const user = await loginWithPasswordAsync({ email, password });
+    const sessionId = await createSessionAsync(user.id);
+    return createSessionJsonResponse({ user: sanitizeUser(user) }, sessionId);
+  } catch (error) {
+    return NextResponse.json({ error: error.message || "Password login failed" }, { status: 401 });
+  }
+}
