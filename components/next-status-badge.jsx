@@ -1,5 +1,6 @@
 "use client";
 
-export default function NextStatusBadge({ tone = "ai", children }) {
-  return <div className={`content-source-badge ${tone}`}>{children}</div>;
+export default function NextStatusBadge({ tone = "ai", className = "", children }) {
+  const mergedClassName = ["content-source-badge", tone, className].filter(Boolean).join(" ");
+  return <div className={mergedClassName}>{children}</div>;
 }

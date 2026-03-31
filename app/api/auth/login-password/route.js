@@ -11,6 +11,7 @@ export async function POST(request) {
     const sessionId = await createSessionAsync(user.id);
     return createSessionJsonResponse({ user: sanitizeUser(user) }, sessionId);
   } catch (error) {
+    console.error("[auth][login-password]", error?.message || error);
     return NextResponse.json({ error: error.message || "Password login failed" }, { status: 401 });
   }
 }

@@ -1654,8 +1654,8 @@ function serveFile(requestPath, response) {
 function createHistoryEntry(payload, result, userId = null) {
   const title = (payload.productName || "Untitled Product").trim();
   const variantLabel = payload.improved
-    ? "Ban cai tien"
-    : "Ban mo ta";
+    ? "Bản cải tiến"
+    : "Bản mô tả";
   return {
     id: `history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),

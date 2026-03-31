@@ -1,8 +1,8 @@
 "use client";
 
 import NextHistoryList from "@/components/next-history-list";
-import { uiCopy } from "@/lib/ui-copy";
 import NextEmptyState from "@/components/next-empty-state";
+import { getCopy } from "@/lib/i18n";
 
 export default function NextHistoryCard({
   session,
@@ -11,17 +11,20 @@ export default function NextHistoryCard({
   favoriteIds,
   onOpen,
   onToggleFavorite,
-  onDelete
+  onDelete,
+  language = "vi"
 }) {
+  const copy = getCopy(language);
+
   return (
     <section className="history-card">
       <div className="history-head">
-        <h3 className="subsection-title">{uiCopy.product.historyTitle}</h3>
-        <span className="inline-note">{session ? `${history.length} phiên bản` : "Cần đăng nhập để đồng bộ"}</span>
+        <h3 className="subsection-title">{copy.history.title}</h3>
+        <span className="inline-note">{session ? copy.history.versions(history.length) : copy.history.loginSyncNeeded}</span>
       </div>
-      {session ? <div className="history-summary-bar">{history.length ? "Tip: chọn bản tốt nhất, bấm Cải tiến thêm để tạo bản chốt sale nhanh hơn." : "Chưa có bản nào. Hãy tạo bản đầu tiên để bắt đầu lưu lịch sử."}</div> : null}
-      {!session ? <NextEmptyState>{uiCopy.product.historyLoginPrompt}</NextEmptyState> : null}
-      {session ? <NextHistoryList items={history} activeHistoryId={activeHistoryId} favoriteIds={favoriteIds} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onDelete={onDelete} /> : null}
+      {session ? <div className="history-summary-bar">{history.length ? copy.history.tipHasHistory : copy.history.tipEmpty}</div> : null}
+      {!session ? <NextEmptyState>{copy.history.loginPrompt}</NextEmptyState> : null}
+      {session ? <NextHistoryList items={history} activeHistoryId={activeHistoryId} favoriteIds={favoriteIds} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onDelete={onDelete} language={language} emptyText={copy.history.empty} /> : null}
     </section>
   );
 }

@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
 import { listHistoryByUserAsync } from "@/lib/server/history-service";
+import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
-export async function GET() {
-  const user = await getCurrentUserFromCookiesAsync();
-  if (!user) return NextResponse.json({ items: [] });
-  return NextResponse.json({ items: await listHistoryByUserAsync(user.id) });
+export async function GET(request) {
+  const ctx = createRequestContext({ method: "GET", headers: new Headers() }, "/api/history");
+  try {
+    const user = await getCurrentUserFromCookiesAsync();
+    if (!user) return withRequestId(NextResponse.json({ items: [] }), ctx);
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type") || "";
+    const items = await listHistoryByUserAsync(user.id, { type });
+    logInfo(ctx, "history.list", { userId: user.id, type: type || null, count: items.length, ms: elapsedMs(ctx) });
+    return withRequestId(NextResponse.json({ items }), ctx);
+  } catch (error) {
+    logError(ctx, "history.list.failed", error, { ms: elapsedMs(ctx) });
+    return withRequestId(NextResponse.json({ items: [] }), ctx);
+  }
 }

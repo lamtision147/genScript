@@ -11,6 +11,7 @@ export async function POST(request) {
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[auth][verify-password-reset]", error?.message || error);
     return NextResponse.json({ error: error.message || "Password reset failed" }, { status: 400 });
   }
 }

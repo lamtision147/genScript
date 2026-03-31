@@ -13,6 +13,7 @@ export async function POST(request) {
     });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[auth][change-password]", error?.message || error);
     return NextResponse.json({ error: error.message || "Change password failed" }, { status: 400 });
   }
 }

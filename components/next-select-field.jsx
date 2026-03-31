@@ -1,11 +1,12 @@
 "use client";
 
 export default function NextSelectField({ label, value, options, onChange }) {
+  const selectId = `field-${String(label || "").replace(/\s+/g, "-").toLowerCase().replace(/[^a-z0-9\-]/g, "")}`;
   return (
     <div className="field">
-      <label>{label}</label>
+      <label htmlFor={selectId}>{label}</label>
       <div className="select-wrap">
-        <select className="dropdown-select" value={value} onChange={(e) => onChange(e.target.value)}>
+        <select id={selectId} className="dropdown-select" value={value} onChange={(e) => onChange(e.target.value)}>
           {options.map((option, index) => {
             if (typeof option === "string") {
               return <option key={`${label}-${index}`} value={index}>{option}</option>;

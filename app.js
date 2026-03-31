@@ -1162,7 +1162,7 @@ async function requestPasswordReset() {
   const data = await response.json();
   state.resetForm.step = "verify";
   state.resetForm.debugCode = data.debugCode || "";
-  state.authMessage = data.emailSent ? (state.lang === "vi" ? "OTP dat lai mat khau da duoc gui." : "Password reset OTP sent.") : getTexts().otpSent;
+  state.authMessage = data.emailSent ? (state.lang === "vi" ? "OTP đặt lại mật khẩu đã được gửi." : "Password reset OTP sent.") : getTexts().otpSent;
   render();
 }
 
@@ -1183,7 +1183,7 @@ async function verifyPasswordReset() {
     return;
   }
   state.resetForm = { email: "", code: "", newPassword: "", step: "request", debugCode: "" };
-  state.authMessage = state.lang === "vi" ? "Mat khau da duoc dat lai. Ban co the dang nhap ngay." : "Password reset successful. You can log in now.";
+  state.authMessage = state.lang === "vi" ? "Mật khẩu đã được đặt lại. Bạn có thể đăng nhập ngay." : "Password reset successful. You can log in now.";
   state.loginForm.mode = "login";
   render();
 }
@@ -1196,12 +1196,12 @@ async function changePassword() {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    state.authMessage = error.error || (state.lang === "vi" ? "Khong the doi mat khau luc nay." : "Unable to change password right now.");
+    state.authMessage = error.error || (state.lang === "vi" ? "Không thể đổi mật khẩu lúc này." : "Unable to change password right now.");
     render();
     return;
   }
   state.profilePasswordForm = { currentPassword: "", newPassword: "" };
-  state.authMessage = state.lang === "vi" ? "Da cap nhat mat khau moi." : "Password updated.";
+  state.authMessage = state.lang === "vi" ? "Đã cập nhật mật khẩu mới." : "Password updated.";
   render();
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requestSignupOtpAsync, sendOtpEmail } from "@/lib/server/auth-service";
+import { requestSignupOtpAsync, sendOtpEmail, shouldExposeDebugOtpCode } from "@/lib/server/auth-service";
 
 export async function POST(request) {
   try {
@@ -12,8 +12,10 @@ export async function POST(request) {
     }
     const code = await requestSignupOtpAsync({ email, name, password });
     const emailSent = await sendOtpEmail(email, code).catch(() => false);
-    return NextResponse.json({ ok: true, emailSent, ...(!emailSent ? { debugCode: code } : {}) });
+    const shouldExposeDebugCode = !emailSent && shouldExposeDebugOtpCode();
+    return NextResponse.json({ ok: true, emailSent, ...(shouldExposeDebugCode ? { debugCode: code } : {}) });
   } catch (error) {
+    console.error("[auth][request-otp]", error?.message || error);
     return NextResponse.json({ error: error.message || "OTP request failed" }, { status: 400 });
   }
 }

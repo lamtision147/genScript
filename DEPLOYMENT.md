@@ -57,3 +57,22 @@ Use `.env.example` as the base reference.
 
 Use `npm run dev` / `npm run build` / `npm run start` for the Next.js runtime going forward.
 Keep `legacy-start` only as a temporary fallback during migration.
+
+## Launch operations runbook
+
+For launch week operations, use this cadence:
+
+1. P0 freeze window (5-7 days)
+   - Only fix blockers in upload/suggest/generate/login/history.
+2. Admin monitoring
+   - Review `/admin` -> `AI Usage` and `Launch metrics` tabs at least twice daily.
+3. Key thresholds before scaling traffic
+   - Generate success rate >= 97%
+   - First output completion rate >= 80%
+   - Average first output latency < 10s
+4. Feedback loop
+   - Collect in-app feedback from `/scriptProductInfo` quick feedback panel.
+   - Resolve highest-frequency issues first.
+5. Roll-forward strategy
+   - Deploy small, frequent patches.
+   - Re-validate `npm run build` and key E2E flows before each production deploy.

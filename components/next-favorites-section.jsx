@@ -2,7 +2,7 @@
 
 import NextHistoryList from "@/components/next-history-list";
 
-export default function NextFavoritesSection({ favorites, onOpen, onToggleFavorite, emptyText }) {
+export default function NextFavoritesSection({ favorites, onOpen, onToggleFavorite, emptyText, language = "vi" }) {
   return (
     <NextHistoryList
       items={favorites}
@@ -12,6 +12,7 @@ export default function NextFavoritesSection({ favorites, onOpen, onToggleFavori
       onToggleFavorite={onToggleFavorite}
       emptyText={emptyText}
       showSource={false}
+      language={language}
     />
   );
 }

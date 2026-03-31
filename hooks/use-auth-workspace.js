@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuthBootstrap } from "@/hooks/use-auth-bootstrap";
 import { apiPost } from "@/lib/client/api";
 import { routes } from "@/lib/routes";
+import { getCopy, localizeKnownMessage } from "@/lib/i18n";
 
 function safeText(value) {
   return String(value || "").trim();
@@ -13,7 +14,7 @@ function normalizeEmail(value) {
   return safeText(value).toLowerCase();
 }
 
-function validateAuthInput(mode, step, form) {
+function validateAuthInput(mode, step, form, copy) {
   const email = normalizeEmail(form.email);
   const password = safeText(form.password);
   const code = safeText(form.code);
@@ -21,37 +22,38 @@ function validateAuthInput(mode, step, form) {
   const name = safeText(form.name);
 
   if (mode === "login") {
-    if (!email) return "Vui lòng nhập email.";
-    if (!password) return "Vui lòng nhập mật khẩu.";
+    if (!email) return copy.messages.enterEmail;
+    if (!password) return copy.messages.enterPassword;
     return "";
   }
 
   if (mode === "signup") {
     if (step === "request") {
-      if (!name) return "Vui lòng nhập tên hiển thị.";
-      if (!email) return "Vui lòng nhập email.";
-      if (password.length < 6) return "Mật khẩu cần ít nhất 6 ký tự.";
+      if (!name) return copy.messages.enterDisplayName;
+      if (!email) return copy.messages.enterEmail;
+      if (password.length < 6) return copy.messages.pwdMin6;
       return "";
     }
 
-    if (!email) return "Vui lòng nhập email.";
-    if (!code) return "Vui lòng nhập mã OTP.";
+    if (!email) return copy.messages.enterEmail;
+    if (!code) return copy.messages.enterOtp;
     return "";
   }
 
   if (step === "request") {
-    if (!email) return "Vui lòng nhập email.";
+    if (!email) return copy.messages.enterEmail;
     return "";
   }
 
-  if (!email) return "Vui lòng nhập email.";
-  if (!code) return "Vui lòng nhập mã OTP.";
-  if (newPassword.length < 6) return "Mật khẩu mới cần ít nhất 6 ký tự.";
+  if (!email) return copy.messages.enterEmail;
+  if (!code) return copy.messages.enterOtp;
+  if (newPassword.length < 6) return copy.messages.newPwdMin6;
   return "";
 }
 
-export function useAuthWorkspace() {
+export function useAuthWorkspace(language = "vi") {
   const { session, authConfig } = useAuthBootstrap();
+  const copy = getCopy(language);
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({ name: "", email: "", password: "", code: "", newPassword: "" });
   const [message, setMessage] = useState("");
@@ -60,7 +62,7 @@ export function useAuthWorkspace() {
   const [loading, setLoading] = useState(false);
 
   async function submitPrimary() {
-    const validationMessage = validateAuthInput(mode, otpStep, form);
+    const validationMessage = validateAuthInput(mode, otpStep, form, copy);
     if (validationMessage) {
       setMessage(validationMessage);
       return;
@@ -86,7 +88,13 @@ export function useAuthWorkspace() {
           });
           setOtpStep("verify");
           setDebugCode(data.debugCode || "");
-          setMessage(data.emailSent ? "OTP đã được gửi đến email của bạn." : `OTP demo: ${data.debugCode}`);
+          if (data.emailSent) {
+            setMessage(copy.messages.otpSent);
+          } else if (data.debugCode) {
+            setMessage(`${copy.auth.otpDemoPrefix}: ${data.debugCode}`);
+          } else {
+            setMessage(copy.messages.otpFallbackNoDebug || copy.messages.genericError);
+          }
           return;
         }
 
@@ -104,7 +112,13 @@ export function useAuthWorkspace() {
         });
         setOtpStep("verify");
         setDebugCode(data.debugCode || "");
-        setMessage(data.emailSent ? "OTP đặt lại mật khẩu đã được gửi." : `OTP demo: ${data.debugCode}`);
+        if (data.emailSent) {
+          setMessage(copy.messages.resetOtpSent);
+        } else if (data.debugCode) {
+          setMessage(`${copy.auth.otpDemoPrefix}: ${data.debugCode}`);
+        } else {
+          setMessage(copy.messages.otpFallbackNoDebug || copy.messages.genericError);
+        }
         return;
       }
 
@@ -116,9 +130,10 @@ export function useAuthWorkspace() {
       setMode("login");
       setOtpStep("request");
       setForm((prev) => ({ ...prev, code: "", newPassword: "", password: "" }));
-      setMessage("Đặt lại mật khẩu thành công. Bạn có thể đăng nhập ngay.");
+      setMessage(copy.messages.resetSuccess);
     } catch (error) {
-      setMessage(error.message || "Đã xảy ra lỗi.");
+      const raw = error.message || copy.messages.genericError;
+      setMessage(localizeKnownMessage(raw, copy) || raw);
     } finally {
       setLoading(false);
     }
