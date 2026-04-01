@@ -60,7 +60,7 @@ async function isSessionTokenValid(token) {
 export async function middleware(request) {
   const sessionId = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const { pathname } = request.nextUrl;
-  const isProtectedPath = pathname.startsWith("/profile") || pathname.startsWith("/admin");
+  const isProtectedPath = pathname.startsWith("/profile") || pathname.startsWith("/admin") || pathname.startsWith("/upgrade");
 
   if (!isProtectedPath) {
     return NextResponse.next();
@@ -74,5 +74,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/admin/:path*"]
+  matcher: ["/profile/:path*", "/admin/:path*", "/upgrade/:path*"]
 };

@@ -20,6 +20,7 @@ export default function NextShellHeader({
   const isScriptPage = pathname === routes.scriptProductInfo;
   const isScriptVideoPage = pathname === routes.scriptVideoReview;
   const isProfilePage = pathname === routes.profile;
+  const isUpgradePage = pathname === routes.upgrade;
   const isAdminPage = pathname === routes.admin;
   const isLoginPage = pathname === routes.login;
   const copy = getCopy(language);
@@ -55,6 +56,7 @@ export default function NextShellHeader({
         <div className="header-topbar-right">
           <div className="header-utility-nav">
             <Link className={`ghost-button nav-link ${isProfilePage ? "active" : ""}`} href={routes.profile}>{copy.common.profile}</Link>
+            {!user?.isAdmin ? <Link className={`ghost-button nav-link ${isUpgradePage ? "active" : ""}`} href={routes.upgrade}>{copy.common.upgrade || "Upgrade Pro"}</Link> : null}
             {isAdminUser ? <Link className={`ghost-button nav-link ${isAdminPage ? "active" : ""}`} href={routes.admin}>Admin</Link> : null}
           </div>
           {userLabel

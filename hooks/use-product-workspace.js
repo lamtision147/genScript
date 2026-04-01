@@ -189,8 +189,8 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   async function refreshUserData() {
     const [sessionRes, historyRes, favoritesRes] = await Promise.all([
       apiGet(routes.api.session, { user: null }),
-      apiGet(`${routes.api.history}?type=product_copy`, { items: [] }),
-      apiGet(`${routes.api.favorites}?type=product_copy`, { items: [] })
+      apiGet(`${routes.api.history}?type=product_copy&limit=200`, { items: [] }),
+      apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
     ]);
     setSession(sessionRes.user || null);
     setHistory(historyRes.items || []);
@@ -471,15 +471,21 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
 
   async function toggleFavorite(historyId) {
     const exists = favoriteIds.has(historyId);
-    if (exists) {
-      setFavorites((prev) => prev.filter((item) => item.id !== historyId));
-    } else {
-      const historyItem = history.find((item) => item.id === historyId);
-      if (historyItem) setFavorites((prev) => [historyItem, ...prev]);
+    try {
+      if (exists) {
+        setFavorites((prev) => prev.filter((item) => item.id !== historyId));
+      } else {
+        const historyItem = history.find((item) => item.id === historyId);
+        if (historyItem) setFavorites((prev) => [historyItem, ...prev]);
+      }
+      await apiPost(routes.api.toggleFavorite, { historyId });
+      await refreshUserData();
+      trackEvent("favorite.toggle", { historyId, nextState: !exists });
+    } catch (error) {
+      await refreshUserData();
+      const raw = error?.message || copy.messages.genericError;
+      setMessage(localizeKnownMessage(raw, copy) || raw);
     }
-    await apiPost(routes.api.toggleFavorite, { historyId });
-    await refreshUserData();
-    trackEvent("favorite.toggle", { historyId, nextState: !exists });
   }
 
   async function saveEditedResult(nextResult) {

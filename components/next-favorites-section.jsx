@@ -3,11 +3,13 @@
 import NextHistoryList from "@/components/next-history-list";
 
 export default function NextFavoritesSection({ favorites, onOpen, onToggleFavorite, emptyText, language = "vi" }) {
+  const list = Array.isArray(favorites) ? favorites : [];
+
   return (
     <NextHistoryList
-      items={favorites}
+      items={list}
       activeHistoryId={null}
-      favoriteIds={new Set(favorites.map((item) => item.id))}
+      favoriteIds={new Set(list.map((item) => item.id))}
       onOpen={onOpen}
       onToggleFavorite={onToggleFavorite}
       emptyText={emptyText}

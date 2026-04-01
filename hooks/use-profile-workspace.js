@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuthBootstrap } from "@/hooks/use-auth-bootstrap";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { getCopy, localizeKnownMessage } from "@/lib/i18n";
+import { routes } from "@/lib/routes";
 
 const DEFAULT_FAVORITES_BY_TYPE = {
   product_copy: [],
@@ -42,7 +43,7 @@ export function useProfileWorkspace(language = "vi") {
   }, [activeFavoriteTab, favoritesByType]);
 
   async function loadFavorites() {
-    const sessionData = await apiGet("/api/session", { user: null });
+    const sessionData = await apiGet(routes.api.session, { user: null });
     setSession(sessionData.user || null);
     if (!sessionData.user) {
       setFavoritesByType(DEFAULT_FAVORITES_BY_TYPE);
@@ -50,9 +51,11 @@ export function useProfileWorkspace(language = "vi") {
       return;
     }
 
+    const preferredLimit = sessionData?.user?.plan === "pro" ? 200 : 5;
+
     const [productData, videoData] = await Promise.all([
-      apiGet("/api/favorites?type=product_copy", { items: [] }),
-      apiGet("/api/favorites?type=video_script", { items: [] })
+      apiGet(`${routes.api.favorites}?type=product_copy&limit=${preferredLimit}`, { items: [] }),
+      apiGet(`${routes.api.favorites}?type=video_script&limit=${preferredLimit}`, { items: [] })
     ]);
 
     const nextFavoritesByType = {
@@ -74,11 +77,15 @@ export function useProfileWorkspace(language = "vi") {
 
   useEffect(() => {
     loadFavorites();
-  }, []);
+  }, [language]);
 
   async function toggleFavorite(historyId) {
-    await apiPost("/api/favorites/toggle", { historyId });
-    await loadFavorites();
+    try {
+      await apiPost(routes.api.toggleFavorite, { historyId });
+      await loadFavorites();
+    } catch (error) {
+      setMessage(localizeKnownMessage(error?.message || copy.messages.genericError, copy) || error?.message || copy.messages.genericError);
+    }
   }
 
   async function changePassword() {

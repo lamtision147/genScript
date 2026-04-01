@@ -26,7 +26,7 @@ function mapItemToScript(item) {
   };
 }
 
-export function useVideoScriptHistory() {
+export function useVideoScriptHistory({ onError } = {}) {
   const [history, setHistory] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [activeHistoryId, setActiveHistoryId] = useState(null);
@@ -38,8 +38,8 @@ export function useVideoScriptHistory() {
 
   async function refresh() {
     const [historyRes, favoritesRes] = await Promise.all([
-      apiGet(`${routes.api.history}?type=video_script`, { items: [] }),
-      apiGet(`${routes.api.favorites}?type=video_script`, { items: [] })
+      apiGet(`${routes.api.history}?type=video_script&limit=200`, { items: [] }),
+      apiGet(`${routes.api.favorites}?type=video_script&limit=200`, { items: [] })
     ]);
 
     const historyItems = Array.isArray(historyRes?.items) ? historyRes.items.map(mapItemToScript) : [];
@@ -50,9 +50,15 @@ export function useVideoScriptHistory() {
   }
 
   async function toggleFavorite(historyId) {
-    await apiPost(routes.api.toggleFavorite, { historyId });
-    await refresh();
-    trackEvent("favorite.toggle", { historyId, type: "video_script" });
+    try {
+      await apiPost(routes.api.toggleFavorite, { historyId });
+      await refresh();
+      trackEvent("favorite.toggle", { historyId, type: "video_script" });
+    } catch (error) {
+      if (typeof onError === "function") {
+        onError(error);
+      }
+    }
   }
 
   async function deleteHistory(historyId) {

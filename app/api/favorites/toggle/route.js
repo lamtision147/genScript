@@ -4,7 +4,7 @@ import { toggleFavoriteAsync } from "@/lib/server/history-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
 export async function POST(request) {
-  const ctx = createRequestContext({ method: "POST", headers: new Headers() }, "/api/favorites/toggle");
+  const ctx = createRequestContext(request, "/api/favorites/toggle");
   try {
     const user = await getCurrentUserFromCookiesAsync();
     if (!user) return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), ctx);
@@ -16,6 +16,7 @@ export async function POST(request) {
     return withRequestId(NextResponse.json({ favorites }), ctx);
   } catch (error) {
     logError(ctx, "favorites.toggle.failed", error, { ms: elapsedMs(ctx) });
-    return withRequestId(NextResponse.json({ error: error?.message || "Failed to toggle favorite" }, { status: 500 }), ctx);
+    const status = /gói Free|Free plan/i.test(String(error?.message || "")) ? 403 : 500;
+    return withRequestId(NextResponse.json({ error: error?.message || "Failed to toggle favorite" }, { status }), ctx);
   }
 }

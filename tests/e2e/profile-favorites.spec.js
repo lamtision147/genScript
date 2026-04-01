@@ -39,7 +39,7 @@ test.describe("Profile favorites tabs", () => {
       ]
     };
 
-    await page.route("**/api/favorites?type=product_copy", async (route) => {
+    await page.route("**/api/favorites?type=product_copy*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -47,7 +47,7 @@ test.describe("Profile favorites tabs", () => {
       });
     });
 
-    await page.route("**/api/favorites?type=video_script", async (route) => {
+    await page.route("**/api/favorites?type=video_script*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

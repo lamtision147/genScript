@@ -215,7 +215,7 @@ test.describe("Video Script Page", () => {
       });
     });
 
-    await page.route("**/api/history?type=video_script", async (route) => {
+    await page.route("**/api/history?type=video_script*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -223,7 +223,7 @@ test.describe("Video Script Page", () => {
       });
     });
 
-    await page.route("**/api/favorites?type=video_script", async (route) => {
+    await page.route("**/api/favorites?type=video_script*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

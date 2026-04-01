@@ -8,11 +8,14 @@ import NextTextField from "@/components/next-text-field";
 import NextTextareaField from "@/components/next-textarea-field";
 import NextImageUploadField from "@/components/next-image-upload-field";
 import NextHistoryCard from "@/components/next-history-card";
+import NextOutputCard from "@/components/next-output-card";
+import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useVideoScriptWorkspace } from "@/hooks/use-video-script-workspace";
 import { getCopy } from "@/lib/i18n";
 import { copyResultText, downloadResultDoc } from "@/lib/client/result-export";
 import { getCategoryGroupOptions } from "@/lib/category-marketplace-presets";
+import { routes } from "@/lib/routes";
 
 const DURATION_PRESETS = [15, 30, 45, 60, 90];
 
@@ -25,6 +28,9 @@ function buildResultAsProductLike(result) {
     return `${label}\nVoice: ${voice}\nVisual: ${visual}`.trim();
   });
   return {
+    source: result.source || "fallback",
+    quality: result.quality || null,
+    promptVersion: result.promptVersion || "",
     paragraphs: [
       `${result.title || "Video script"}\n${result.hook || ""}`.trim(),
       sceneBlocks.join("\n\n"),
@@ -32,6 +38,36 @@ function buildResultAsProductLike(result) {
     ],
     hashtags: Array.isArray(result.hashtags) ? result.hashtags : []
   };
+}
+
+function parseSceneBlocksFromParagraph(paragraph = "", language = "vi") {
+  const blocks = String(paragraph || "")
+    .split(/\n{2,}/g)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  const defaultSceneLabel = language === "vi" ? "Cảnh" : "Scene";
+
+  return blocks.map((block, index) => {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    const fallbackLabel = `${defaultSceneLabel} ${index + 1}`;
+    const label = lines[0] || fallbackLabel;
+
+    const findField = (regex) => {
+      const line = lines.find((item) => regex.test(item));
+      if (!line) return "";
+      return line.replace(/^[^:]+:\s*/u, "").trim();
+    };
+
+    const voice = findField(/^voice\s*:/i) || lines.slice(1).join(" ");
+    const visual = findField(/^visual\s*:/i);
+
+    return {
+      label,
+      voice,
+      visual
+    };
+  }).filter((scene) => scene.voice || scene.visual);
 }
 
 export default function NextVideoScriptPage({ initialHistoryId = "" }) {
@@ -44,6 +80,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     form,
     result,
     loading,
+    savingEdited,
     suggesting,
     suggestion,
     suggestionPulseToken,
@@ -89,6 +126,38 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   function handleDownload() {
     const fallbackTitle = isVi ? "Kịch bản review video" : "Video review script";
     downloadResultDoc(outputData, result?.title || form.productName || fallbackTitle);
+  }
+
+  function toProductLikeForSave(nextResult) {
+    const title = String(nextResult?.title || "").trim();
+    const hook = String(nextResult?.hook || "").trim();
+    const cta = String(nextResult?.cta || "").trim();
+    const parsedParagraphs = Array.isArray(nextResult?.paragraphs) ? nextResult.paragraphs : [];
+    const parsedScenes = parseSceneBlocksFromParagraph(parsedParagraphs[1] || "", language);
+    const scenes = Array.isArray(nextResult?.scenes)
+      ? nextResult.scenes.map((scene, index) => ({
+        label: String(scene?.label || `Scene ${index + 1}`).trim(),
+        voice: String(scene?.voice || "").trim(),
+        visual: String(scene?.visual || "").trim()
+      })).filter((scene) => scene.voice || scene.visual)
+      : parsedScenes;
+
+    const paragraphs = Array.isArray(nextResult?.paragraphs) ? nextResult.paragraphs : [];
+    const firstBlock = String(paragraphs[0] || "").trim();
+    const firstLines = firstBlock.split("\n").map((line) => line.trim()).filter(Boolean);
+    const mergedTitle = title || firstLines[0] || form.productName || (isVi ? "Kịch bản review video" : "Video review script");
+    const mergedHook = hook || firstLines.slice(1).join(" ") || "";
+
+    return {
+      ...result,
+      ...nextResult,
+      title: mergedTitle,
+      hook: mergedHook,
+      cta: cta || String(parsedParagraphs[2] || "").split("\n")[0].trim(),
+      scenes,
+      hashtags: Array.isArray(nextResult?.hashtags) ? nextResult.hashtags : (Array.isArray(result?.hashtags) ? result.hashtags : []),
+      shotList: Array.isArray(nextResult?.shotList) ? nextResult.shotList : (Array.isArray(result?.shotList) ? result.shotList : [])
+    };
   }
 
   return (
@@ -313,73 +382,24 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
         <section className="panel">
           <div className="panel-head">
             <h2 className="section-title">{isVi ? "Kết quả kịch bản" : "Script output"}</h2>
-            <div className="user-actions">
-              {result ? <button type="button" className="ghost-button" onClick={handleCopy}>{copy.common.copy}</button> : null}
-              {result ? <button type="button" className="ghost-button" onClick={handleDownload}>{copy.common.download}</button> : null}
-            </div>
           </div>
 
-          <section className="panel-section strong">
-            {loading ? <div className="history-empty">{isVi ? "AI đang tạo kịch bản review..." : "AI is generating the review script..."}</div> : null}
-            {!loading && message ? <div className="history-empty error-state">{message}</div> : null}
-            {!loading && !result && !message ? (
-              <div className="history-empty">
-                {isVi
-                  ? "Điền brief bên trái và bấm Tạo kịch bản video để nhận hook + scene + CTA chốt đơn."
-                  : "Fill the brief and click Generate video script to get hook + scenes + CTA."}
-              </div>
-            ) : null}
-
-            {!loading && result ? (
-              <>
-                {result?.quality ? (
-                  <div className="content-head inline-compact">
-                    <div className="status-row">
-                      <span className="chip">{isVi ? `Chất lượng: ${result.quality.grade} (${result.quality.score})` : `Quality: ${result.quality.grade} (${result.quality.score})`}</span>
-                      <span className="inline-note">{isVi ? "Đã chấm theo hook + scene + CTA" : "Scored by hook + scene + CTA"}</span>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="textarea-block output-paragraph">
-                  <strong>{isVi ? "Tiêu đề" : "Title"}:</strong> {result.title}
-                </div>
-                <div className="textarea-block output-paragraph">
-                  <strong>{isVi ? "Hook mở đầu" : "Opening hook"}:</strong> {result.hook}
-                </div>
-
-                <div className="video-scene-list">
-                  {(result.scenes || []).map((scene, index) => (
-                    <div className="textarea-block output-paragraph" key={`scene-${index}`}>
-                      <strong>{scene.label || (isVi ? `Cảnh ${index + 1}` : `Scene ${index + 1}`)}</strong>
-                      <div>{isVi ? "Voice" : "Voice"}: {scene.voice}</div>
-                      <div>{isVi ? "Visual" : "Visual"}: {scene.visual}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="textarea-block output-paragraph">
-                  <strong>CTA:</strong> {result.cta}
-                </div>
-
-                {result.shotList?.length ? (
-                  <div className="textarea-block output-paragraph">
-                    <strong>{isVi ? "Shot list gợi ý" : "Suggested shot list"}:</strong>
-                    <ul className="video-shot-list">
-                      {result.shotList.map((shot, idx) => <li key={`shot-${idx}`}>{shot}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {result.hashtags?.length ? (
-                  <div className="hashtag-wrap">
-                    <div className="hashtag-list">
-                      {result.hashtags.map((tag) => <span key={tag} className="hashtag-chip">{tag}</span>)}
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </section>
+          <NextOutputCard
+            loading={loading}
+            result={outputData}
+            message={message}
+            session={session}
+            onImprove={null}
+            onCopy={handleCopy}
+            onDownload={handleDownload}
+            editable
+            savingEdited={savingEdited}
+            onSaveEditedResult={async (nextProductLike) => {
+              const nextVideoResult = toProductLikeForSave(nextProductLike);
+              await actions.saveEditedResult(nextVideoResult);
+            }}
+            language={language}
+          />
 
           <NextHistoryCard
             session={session}
@@ -391,8 +411,26 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             onDelete={actions.deleteHistory}
             language={language}
           />
+          {session?.plan === "free" ? (
+            <div className="history-empty upgrade-inline-cta">
+              {isVi ? "Bạn đang dùng gói Free. Nâng cấp Pro để mở không giới hạn lịch sử và yêu thích." : "You are on Free plan. Upgrade to Pro for unlimited history and favorites."}
+              <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>
+            </div>
+          ) : null}
         </section>
       </section>
+      <NextSupportChatShell
+        language={language}
+        page="scriptVideoReview"
+        user={session}
+        context={{
+          productName: form?.productName || "",
+          category: form?.category || "",
+          hasResult: Boolean(result),
+          hasHistory: Array.isArray(history) && history.length > 0,
+          hasImages: Array.isArray(form?.images) && form.images.length > 0
+        }}
+      />
     </NextPageFrame>
   );
 }

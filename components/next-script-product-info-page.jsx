@@ -16,6 +16,7 @@ import { useProductWorkspace } from "@/hooks/use-product-workspace";
 import { getCopy, getLocalizedProductConfig } from "@/lib/i18n";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { getCategoryGroupOptions, getCategoryValuesByGroup } from "@/lib/category-marketplace-presets";
+import { routes } from "@/lib/routes";
 
 export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   const { language, setLanguage } = useUiLanguage("vi");
@@ -259,6 +260,12 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               onDelete={actions.deleteHistory}
               language={language}
             />
+            {session?.plan === "free" ? (
+              <div className="history-empty upgrade-inline-cta">
+                {isVi ? "Bạn đang dùng gói Free. Nâng cấp Pro để mở không giới hạn lịch sử và yêu thích." : "You are on Free plan. Upgrade to Pro for unlimited history and favorites."}
+                <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>
+              </div>
+            ) : null}
           </section>
       </section>
       <NextSupportChatShell

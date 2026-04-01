@@ -6,8 +6,10 @@ import NextProfilePasswordSection from "@/components/next-profile-password-secti
 import { useProfileWorkspace } from "@/hooks/use-profile-workspace";
 import NextPageFrame from "@/components/next-page-frame";
 import NextStatusBadge from "@/components/next-status-badge";
+import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { getCopy } from "@/lib/i18n";
 import { useUiLanguage } from "@/hooks/use-ui-language";
+import { routes } from "@/lib/routes";
 
 export default function NextProfilePage() {
   const { language, setLanguage } = useUiLanguage("vi");
@@ -24,6 +26,10 @@ export default function NextProfilePage() {
   const copy = getCopy(language);
   const profileTitleText = language === "vi" ? "C\u00E0i \u0111\u1EB7t h\u1ED3 s\u01A1" : copy.profile.title;
   const profileSettingsTitleText = language === "vi" ? "C\u00E0i \u0111\u1EB7t h\u1ED3 s\u01A1" : copy.profile.settingsTitle;
+  const isPro = String(session?.plan || "free") === "pro";
+  const favoriteLimitText = isPro
+    ? (language === "vi" ? "Không giới hạn" : "Unlimited")
+    : `${session?.planLimits?.favoritesLimit ?? 5}`;
 
   function handleOpenFavorite(item) {
     const contentType = String(item?.form?.contentType || "").toLowerCase();
@@ -62,6 +68,16 @@ export default function NextProfilePage() {
             <h2 className="profile-settings-title profile-settings-title-safe" lang={language === "vi" ? "vi" : undefined}>{profileSettingsTitleText}</h2>
             <NextStatusBadge tone="ai" className="profile-vi-badge">{copy.profile.favoritesCount(favorites.length)}</NextStatusBadge>
           </div>
+          {session ? (
+            <div className="profile-plan-banner">
+              <strong>{language === "vi" ? "Gói hiện tại:" : "Current plan:"}</strong>
+              <span>{isPro ? " Pro" : " Free"}</span>
+              <span>·</span>
+              <strong>{language === "vi" ? "Giới hạn yêu thích:" : "Favorites limit:"}</strong>
+              <span>{` ${favoriteLimitText}`}</span>
+              {!isPro ? <a className="ghost-button" href={routes.upgrade}>{language === "vi" ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
+            </div>
+          ) : null}
           {!session ? <div className="history-empty">{copy.profile.notLoggedIn}</div> : null}
           {session ? (
             <>
@@ -91,6 +107,17 @@ export default function NextProfilePage() {
           {session ? <NextProfilePasswordSection form={form} message={message} onFieldChange={(key, value) => actions.setForm((prev) => ({ ...prev, [key]: value }))} onSubmit={actions.changePassword} language={language} /> : null}
         </section>
       </section>
+      <NextSupportChatShell
+        language={language}
+        page="profile"
+        user={session}
+        context={{
+          hasResult: false,
+          hasHistory: Array.isArray(activeFavorites) && activeFavorites.length > 0,
+          hasImages: false,
+          category: ""
+        }}
+      />
     </NextPageFrame>
   );
 }

@@ -445,7 +445,13 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     activeHistoryId,
     setActiveHistoryId,
     actions: historyActions
-  } = useVideoScriptHistory();
+  } = useVideoScriptHistory({
+    onError: (error) => {
+      const fallback = copy?.messages?.genericError || "Đã xảy ra lỗi.";
+      const raw = error?.message || fallback;
+      setMessage(localizeKnownMessage(raw, copy) || raw);
+    }
+  });
 
   const [form, setForm] = useState(() => enforceGroupScopedCategory(createEmptyVideoForm(), "fashionBeauty"));
   const [result, setResult] = useState(null);

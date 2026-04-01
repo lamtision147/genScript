@@ -4,13 +4,14 @@ import { listHistoryByUserAsync } from "@/lib/server/history-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
 export async function GET(request) {
-  const ctx = createRequestContext({ method: "GET", headers: new Headers() }, "/api/history");
+  const ctx = createRequestContext(request, "/api/history");
   try {
     const user = await getCurrentUserFromCookiesAsync();
     if (!user) return withRequestId(NextResponse.json({ items: [] }), ctx);
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "";
-    const items = await listHistoryByUserAsync(user.id, { type });
+    const limit = searchParams.get("limit") || "";
+    const items = await listHistoryByUserAsync(user.id, { type, limit });
     logInfo(ctx, "history.list", { userId: user.id, type: type || null, count: items.length, ms: elapsedMs(ctx) });
     return withRequestId(NextResponse.json({ items }), ctx);
   } catch (error) {

@@ -47,7 +47,7 @@ test.describe("Output save flow", () => {
       }
     ];
 
-    await page.route("**/api/history?type=product_copy", async (route) => {
+    await page.route("**/api/history?type=product_copy*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -55,7 +55,7 @@ test.describe("Output save flow", () => {
       });
     });
 
-    await page.route("**/api/favorites?type=product_copy", async (route) => {
+    await page.route("**/api/favorites?type=product_copy*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
