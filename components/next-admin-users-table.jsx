@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import NextAdminAiUsagePanel from "@/components/next-admin-ai-usage-panel";
 import NextAdminLaunchMetricsPanel from "@/components/next-admin-launch-metrics-panel";
+import NextAdminSupportChatPanel from "@/components/next-admin-support-chat-panel";
 import { buildAdminUsersCsv } from "@/lib/client/admin-export";
 import { downloadText } from "@/lib/client/download-utils";
 import { getCopy } from "@/lib/i18n";
@@ -21,6 +22,18 @@ export default function NextAdminUsersTable({
   usageDays,
   launchMetrics,
   launchMetricsDays,
+  supportConversations,
+  supportStatus,
+  supportQuery,
+  supportPage,
+  supportMeta,
+  activeSupportConversationId,
+  activeSupportConversation,
+  activeSupportMessages,
+  supportThreadLoading,
+  supportSending,
+  supportAdminDraft,
+  realtimeOn,
   onResetPassword,
   onDeleteUser,
   onQueryChange,
@@ -28,6 +41,13 @@ export default function NextAdminUsersTable({
   onPageSizeChange,
   onUsageDaysChange,
   onLaunchMetricsDaysChange,
+  onSupportStatusChange,
+  onSupportQueryChange,
+  onSupportPageChange,
+  onSupportUpdate,
+  onSupportSelectConversation,
+  onSupportAdminDraftChange,
+  onSupportSendReply,
   language = "vi"
 }) {
   const copy = getCopy(language);
@@ -40,7 +60,11 @@ export default function NextAdminUsersTable({
     ? (isVi ? "Đặt lại mật khẩu thành công." : "Password reset successful.")
     : messageCode === "delete_success"
       ? (isVi ? "Xóa người dùng thành công." : "User deleted successfully.")
-      : message;
+      : messageCode === "support_update_success"
+        ? (isVi ? "Cập nhật yêu cầu hỗ trợ thành công." : "Support request updated successfully.")
+        : messageCode === "support_reply_success"
+          ? (isVi ? "Đã gửi phản hồi cho người dùng." : "Reply sent to user.")
+        : message;
 
   const canPrev = page > 1;
   const canNext = page < (pagination?.totalPages || 1);
@@ -122,6 +146,15 @@ export default function NextAdminUsersTable({
           onClick={() => setActiveTab("launch")}
         >
           {isVi ? "Launch metrics" : "Launch metrics"}
+        </button>
+        <button
+          type="button"
+          className={`ghost-button admin-tab-button ${activeTab === "support" ? "active" : ""}`}
+          role="tab"
+          aria-selected={activeTab === "support"}
+          onClick={() => setActiveTab("support")}
+        >
+          {isVi ? "Hỗ trợ trực tiếp" : "Direct support"}
         </button>
       </div>
 
@@ -238,6 +271,31 @@ export default function NextAdminUsersTable({
           metricsDays={launchMetricsDays}
           onMetricsDaysChange={onLaunchMetricsDaysChange}
           language={language}
+        />
+      ) : null}
+
+      {activeTab === "support" ? (
+        <NextAdminSupportChatPanel
+          conversations={supportConversations}
+          conversationStatus={supportStatus}
+          conversationQuery={supportQuery}
+          conversationPage={supportPage}
+          conversationMeta={supportMeta}
+          activeConversation={activeSupportConversation}
+          activeMessages={activeSupportMessages}
+          loadingThread={supportThreadLoading}
+          sending={supportSending}
+          adminDraft={supportAdminDraft}
+          realtimeOn={realtimeOn}
+          loading={loading}
+          language={language}
+          onConversationStatusChange={onSupportStatusChange}
+          onConversationQueryChange={onSupportQueryChange}
+          onConversationPageChange={onSupportPageChange}
+          onUpdateConversationStatus={onSupportUpdate}
+          onSelectConversation={onSupportSelectConversation}
+          onAdminDraftChange={onSupportAdminDraftChange}
+          onSendAdminMessage={onSupportSendReply}
         />
       ) : null}
     </section>

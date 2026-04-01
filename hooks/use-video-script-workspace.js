@@ -10,9 +10,16 @@ import { trackEvent } from "@/lib/client/telemetry";
 import { useVideoScriptHistory } from "@/hooks/use-video-script-history";
 import { getProductIndustryPresets } from "@/lib/product-industry-templates";
 import { getCategoryGroupValue, getCategoryValuesByGroup, getMarketplaceDefaults } from "@/lib/category-marketplace-presets";
+import {
+  inferCategoryFromProductName,
+  isUnknownGeneratedProductName,
+  normalizeSuggestedCategory,
+  shouldPreferInferredCategory
+} from "@/lib/category-inference";
+import { normalizeTextForCategoryCheck } from "@/lib/category-inference";
+import { enforceGroupScopedCategory } from "@/lib/product-workspace-helpers";
 
 const MAX_IMAGE_COUNT = 4;
-const UNKNOWN_NAME_PATTERN = /(khong nhan dang|khong xac dinh|unable to identify|cannot identify)/i;
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -43,145 +50,11 @@ function normalizePriceSegment(value) {
   return "mid";
 }
 
-function normalizeTextForCategoryCheck(value = "") {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-    .trim();
-}
-
-function normalizeSuggestedCategory(value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return "other";
-
-  const canonical = new Set([
-    "fashion", "skincare", "beautyTools", "home", "furnitureDecor", "electronics", "food", "householdEssentials", "footwear", "bags", "accessories", "fragrance", "pet", "sports", "motherBaby", "healthCare", "booksStationery", "toysGames", "autoMoto", "phoneTablet", "computerOffice", "cameraDrone", "homeAppliances", "toolsHardware", "digitalGoods", "other"
-  ]);
-
-  if (canonical.has(raw)) return raw;
-
-  const normalized = normalizeTextForCategoryCheck(raw).replace(/\s+/g, "");
-  const aliasMap = {
-    fashion: "fashion",
-    thoitrang: "fashion",
-    skincare: "skincare",
-    mypham: "skincare",
-    beautytools: "beautyTools",
-    dungculamdep: "beautyTools",
-    home: "home",
-    giadung: "home",
-    furnituredecor: "furnitureDecor",
-    noithat: "furnitureDecor",
-    electronics: "electronics",
-    dientu: "electronics",
-    food: "food",
-    thucpham: "food",
-    householdessentials: "householdEssentials",
-    tieudungnhanh: "householdEssentials",
-    footwear: "footwear",
-    giaydep: "footwear",
-    bags: "bags",
-    tuixach: "bags",
-    accessories: "accessories",
-    phukien: "accessories",
-    fragrance: "fragrance",
-    nuochoa: "fragrance",
-    pet: "pet",
-    thucung: "pet",
-    sports: "sports",
-    thethao: "sports",
-    motherbaby: "motherBaby",
-    mevabe: "motherBaby",
-    healthcare: "healthCare",
-    suckhoe: "healthCare",
-    booksstationery: "booksStationery",
-    sachvanphongpham: "booksStationery",
-    toysgames: "toysGames",
-    dochoi: "toysGames",
-    automoto: "autoMoto",
-    otoxemay: "autoMoto",
-    phonetablet: "phoneTablet",
-    dienthoaitablet: "phoneTablet",
-    computeroffice: "computerOffice",
-    maytinhvanphong: "computerOffice",
-    cameradrone: "cameraDrone",
-    mayanhdrone: "cameraDrone",
-    homeappliances: "homeAppliances",
-    diengiadung: "homeAppliances",
-    toolshardware: "toolsHardware",
-    dungcu: "toolsHardware",
-    digitalgoods: "digitalGoods",
-    sanphamso: "digitalGoods",
-    other: "other",
-    khac: "other"
-  };
-
-  return aliasMap[normalized] || "other";
-}
-
-function inferCategoryFromProductName(name = "") {
-  const normalized = normalizeTextForCategoryCheck(name);
-  if (!normalized) return "";
-
-  const has = (pattern) => pattern.test(normalized);
-
-  if (has(/voucher|gift\s*card|license|template|preset|khoa\s*hoc\s*online|digital\b/)) return "digitalGoods";
-  if (has(/camera\s*hanh\s*trinh|dash\s*cam|phu\s*kien\s*xe|oto|xe\s*may|moto|o\s*to/)) return "autoMoto";
-  if (has(/drone|flycam|mirrorless|dslr|may\s*anh|camera\b|gimbal/)) return "cameraDrone";
-
-  if (has(/dien\s*thoai|smartphone|iphone|android\b|may\s*tinh\s*bang|tablet|ipad/)) return "phoneTablet";
-  if (has(/balo|backpack|tote|handbag|tui\b/)) return "bags";
-
-  if (has(/laptop|monitor|man\s*hinh|keyboard|ban\s*phim|mouse|chuot|router|wifi|printer|may\s*in|webcam|micro|pc\b/)) return "computerOffice";
-  if (has(/tai\s*nghe|headphone|earbud|loa|speaker|sac|charger|power\s*bank|pin\s*du\s*phong/)) return "electronics";
-
-  if (has(/may\s*rua\s*mat|may\s*say\s*toc|hair\s*dryer|uon\s*toc|straightener|makeup\s*brush|co\s*trang\s*diem|triet\s*long/)) return "beautyTools";
-  if (has(/serum|kem\s*chong\s*nang|sunscreen|sua\s*rua\s*mat|cleanser|toner|kem\s*duong|moisturizer|my\s*pham|skincare/)) return "skincare";
-  if (has(/nuoc\s*hoa|fragrance|perfume|body\s*mist/)) return "fragrance";
-
-  if (has(/binh\s*sua|ta\s*quan|bim|sosinh|baby|me\s*be/)) return "motherBaby";
-  if (has(/huyet\s*ap|vitamin|supplement|suc\s*khoe|health\s*care|thermometer/)) return "healthCare";
-
-  if (has(/\bao\b|dam\s*cong\s*so|dam\s*du\s*tiec|dam\s*nu|\bvay\b|so\s*mi|hoodie|\bquan\b|sleepwear|pajama|pyjama|do\s*ngu|quan\s*ngu|shorts?/)) return "fashion";
-  if (has(/giay|sneaker|sandal|dep\b|boots/)) return "footwear";
-  if (has(/wallet|that\s*lung|belt|khuyen\s*tai|vong\b|phu\s*kien|accessor/)) return "accessories";
-
-  if (has(/noi\s*chien|air\s*fryer|may\s*hut\s*bui|vacuum|may\s*loc\s*khong\s*khi|air\s*purifier|may\s*xay|blender|juicer|home\s*appliance/)) return "homeAppliances";
-  if (has(/vien\s*giat|nuoc\s*giat|detergent|lau\s*san|floor\s*cleaner|tissue|giay\s*ve\s*sinh|dishwash/)) return "householdEssentials";
-  if (has(/ke\s*bep|gia\s*vi|hop\s*dung|do\s*bep|houseware|gia\s*dung|kitchenware/)) return "home";
-  if (has(/sofa|ban\s*tra|\bke\b|shelf|\btu\b|chair|den\s*decor|decor|noi\s*that|furniture/)) return "furnitureDecor";
-
-  if (has(/yen\s*mach|granola|snack|do\s*uong|thuc\s*pham|food|an\s*kieng/)) return "food";
-  if (has(/pate|thuc\s*an\s*cho|thuc\s*an\s*meo|cat\s*litter|pet\b|thu\s*cung|dog|cat/)) return "pet";
-  if (has(/yoga|gym|running|dumbbell|resistance|the\s*thao/)) return "sports";
-  if (has(/planner|but\b|notebook|sach\b|stationery|van\s*phong\s*pham|book\b/)) return "booksStationery";
-  if (has(/lego|board\s*game|do\s*choi|toy\b|game\b/)) return "toysGames";
-  if (has(/may\s*khoan|khoan\b|tua\s*vit|dung\s*cu|tool|hardware|do\s*nghe/)) return "toolsHardware";
-
-  return "";
-}
-
-function shouldPreferInferredCategory(inferredCategory = "", suggestedCategory = "") {
-  if (!inferredCategory || !suggestedCategory || inferredCategory === suggestedCategory) return false;
-  const suggestedGroup = getCategoryGroupValue(suggestedCategory);
-  const inferredGroup = getCategoryGroupValue(inferredCategory);
-  const isSpecificTechCorrection = ["electronics", "computerOffice", "phoneTablet"].includes(inferredCategory);
-  return suggestedGroup !== inferredGroup || isSpecificTechCorrection;
-}
-
 function isLowSignalSuggestion(suggestion = null) {
   const confidence = Number(suggestion?.confidence || 0);
   const noteText = Array.isArray(suggestion?.notes) ? suggestion.notes.join(" ") : "";
   const noDataPattern = /khong du du lieu|chua du du lieu|insufficient|not enough image|uploaded image does not contain enough data|metadata|temporary inference|suy luan tam/i;
   return confidence <= 0.58 && noDataPattern.test(noteText);
-}
-
-function isUnknownGeneratedName(value = "") {
-  const normalized = normalizeTextForCategoryCheck(value);
-  if (!normalized) return true;
-  return UNKNOWN_NAME_PATTERN.test(normalized);
 }
 
 function mapSuggestMoodLabel(language = "vi", moodValue = 2) {
@@ -562,15 +435,6 @@ export function createEmptyVideoForm() {
   };
 }
 
-function enforceGroupScopedCategory(formState, groupFilter) {
-  const allowed = getCategoryValuesByGroup(groupFilter);
-  const nextCategory = allowed.includes(formState?.category) ? formState.category : (allowed[0] || "other");
-  return {
-    ...formState,
-    category: nextCategory
-  };
-}
-
 export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = "" } = {}) {
   const { session, setSession } = useAuthBootstrap();
   const copy = getCopy(language);
@@ -586,6 +450,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
   const [form, setForm] = useState(() => enforceGroupScopedCategory(createEmptyVideoForm(), "fashionBeauty"));
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [savingEdited, setSavingEdited] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
   const [suggestionPulseToken, setSuggestionPulseToken] = useState(0);
@@ -873,7 +738,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       if (!suggested) return;
 
       const generatedName = cleanText(suggested.generatedProductName || "");
-      const shouldUseGeneratedName = Boolean(generatedName && !isUnknownGeneratedName(generatedName));
+      const shouldUseGeneratedName = Boolean(generatedName && !isUnknownGeneratedProductName(generatedName));
       const inferredCategory = inferCategoryFromProductName(shouldUseGeneratedName ? generatedName : form.productName);
       const suggestedCategory = normalizeSuggestedCategory(suggested.category);
       const resolvedCategory = shouldPreferInferredCategory(inferredCategory, suggestedCategory)
@@ -1019,11 +884,70 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     }
   }
 
+  async function saveEditedResult(nextResult) {
+    if (!activeHistoryId) {
+      throw new Error(language === "vi" ? "Vui lòng mở một bản trong lịch sử trước khi lưu chỉnh sửa." : "Please open a history item before saving edits.");
+    }
+
+    setSavingEdited(true);
+    try {
+      const payload = {
+        historyId: activeHistoryId,
+        contentType: "video_script",
+        title: String(nextResult?.title || form.productName || "Video script").trim(),
+        result: {
+          ...nextResult,
+          scenes: Array.isArray(nextResult?.scenes)
+            ? nextResult.scenes.map((scene, index) => ({
+              label: String(scene?.label || `Scene ${index + 1}`).trim(),
+              voice: String(scene?.voice || "").trim(),
+              visual: String(scene?.visual || "").trim()
+            })).filter((scene) => scene.voice || scene.visual)
+            : [],
+          hashtags: Array.isArray(nextResult?.hashtags)
+            ? nextResult.hashtags.map((item) => String(item || "").trim()).filter(Boolean)
+            : [],
+          shotList: Array.isArray(nextResult?.shotList)
+            ? nextResult.shotList.map((item) => String(item || "").trim()).filter(Boolean)
+            : []
+        }
+      };
+
+      const data = await apiPost(routes.api.saveHistoryOutput, payload);
+      const updatedItem = data?.item;
+      if (!updatedItem) {
+        throw new Error(language === "vi" ? "Không thể lưu chỉnh sửa lúc này." : "Unable to save edits right now.");
+      }
+
+      const nextHistoryId = updatedItem.id || activeHistoryId;
+      setActiveHistoryId(nextHistoryId || null);
+      setResult(updatedItem.result || null);
+      setForm((prev) => ({
+        ...prev,
+        ...(updatedItem.form || {}),
+        images: Array.isArray(updatedItem?.form?.images) ? updatedItem.form.images : [],
+        highlights: serializeHighlights(updatedItem?.form?.highlights ?? prev.highlights),
+        durationSec: sanitizeDurationPreset(updatedItem?.form?.durationSec ?? prev.durationSec),
+        priceSegment: normalizePriceSegment(updatedItem?.form?.priceSegment || prev.priceSegment),
+        industryPreset: updatedItem?.form?.industryPreset || prev.industryPreset || ""
+      }));
+      await historyActions.refresh();
+      trackEvent("output.save", {
+        page: "scriptVideoReview",
+        historyId: nextHistoryId,
+        contentType: "video_script"
+      });
+    } finally {
+      setSavingEdited(false);
+    }
+  }
+
   return {
     session,
     form,
     result,
     loading,
+    savingEdited,
     suggesting,
     suggestion,
     suggestionPulseToken,
@@ -1051,6 +975,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       removeImage,
       suggestFromImages,
       generateVideoScript,
+      saveEditedResult,
       openHistoryItem: (item) => {
         if (!item) return;
         setActiveHistoryId(item.id || null);

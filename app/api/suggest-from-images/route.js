@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { suggestProductFromImages } from "@/lib/server/ai-service";
 import { getCategoryGroupValue, getMarketplaceDefaults } from "@/lib/category-marketplace-presets";
+import { inferCategoryFromProductName } from "@/lib/category-inference";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
 const SUGGEST_ERROR_NOTE_BY_LANG = {
@@ -19,57 +20,6 @@ function normalizeLang(value) {
   return SUGGEST_ERROR_NOTE_BY_LANG[normalized] ? normalized : "vi";
 }
 
-function inferFallbackCategoryFromName(name = "") {
-  const normalized = String(name || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-    .trim();
-
-  const has = (pattern) => pattern.test(normalized);
-
-  if (!normalized) return "other";
-
-  if (has(/voucher|gift\s*card|license|template|preset|khoa\s*hoc\s*online|digital\s*goods|digital\b/)) return "digitalGoods";
-
-  if (has(/camera\s*hanh\s*trinh|dash\s*cam|phu\s*kien\s*xe|oto|xe\s*may|moto|o\s*to/)) return "autoMoto";
-  if (has(/drone|flycam|mirrorless|dslr|may\s*anh|camera\b|gimbal/)) return "cameraDrone";
-
-  if (has(/dien\s*thoai|smartphone|iphone|android\b|may\s*tinh\s*bang|tablet|ipad/)) return "phoneTablet";
-
-  if (has(/balo|backpack|tote|handbag|tui\b/)) return "bags";
-
-  if (has(/laptop|monitor|man\s*hinh|keyboard|ban\s*phim|mouse|chuot|router|wifi|printer|may\s*in|webcam|micro|pc\b|desk\s*setup/)) return "computerOffice";
-  if (has(/tai\s*nghe|headphone|earbud|loa|speaker|sac|charger|power\s*bank|pin\s*du\s*phong/)) return "electronics";
-
-  if (has(/may\s*rua\s*mat|may\s*say\s*toc|hair\s*dryer|uon\s*toc|straightener|makeup\s*brush|co\s*trang\s*diem|triet\s*long/)) return "beautyTools";
-  if (has(/serum|kem\s*chong\s*nang|sunscreen|sua\s*rua\s*mat|cleanser|toner|kem\s*duong|moisturizer|my\s*pham|skincare/)) return "skincare";
-  if (has(/nuoc\s*hoa|fragrance|perfume|body\s*mist/)) return "fragrance";
-
-  if (has(/binh\s*sua|ta\s*quan|bim|sosinh|baby|me\s*be/)) return "motherBaby";
-  if (has(/huyet\s*ap|vitamin|supplement|suc\s*khoe|health\s*care|thermometer/)) return "healthCare";
-
-  if (has(/\bao\b|dam\s*cong\s*so|dam\s*du\s*tiec|dam\s*nu|\bvay\b|so\s*mi|hoodie|\bquan\b|sleepwear|pajama|pyjama|do\s*ngu|quan\s*ngu/)) return "fashion";
-  if (has(/giay|sneaker|sandal|dep\b|boots/)) return "footwear";
-  if (has(/wallet|that\s*lung|belt|khuyen\s*tai|vong\b|phu\s*kien|accessor/)) return "accessories";
-
-  if (has(/noi\s*chien|air\s*fryer|may\s*hut\s*bui|vacuum|may\s*loc\s*khong\s*khi|air\s*purifier|may\s*xay|blender|juicer|home\s*appliance/)) return "homeAppliances";
-  if (has(/vien\s*giat|nuoc\s*giat|detergent|lau\s*san|floor\s*cleaner|tissue|giay\s*ve\s*sinh|dishwash|hat\s*cho\s*cho|hat\s*cho\s*meo/)) return "householdEssentials";
-  if (has(/ke\s*bep|gia\s*vi|hop\s*dung|do\s*bep|houseware|gia\s*dung|kitchenware/)) return "home";
-  if (has(/sofa|ban\s*tra|\bke\b|shelf|\btu\b|chair|den\s*decor|decor|noi\s*that|furniture/)) return "furnitureDecor";
-
-  if (has(/yen\s*mach|granola|snack|do\s*uong|thuc\s*pham|food|an\s*kieng/)) return "food";
-  if (has(/pate|thuc\s*an\s*cho|thuc\s*an\s*meo|cat\s*litter|pet\b|thu\s*cung|dog|cat/)) return "pet";
-  if (has(/yoga|gym|running|dumbbell|resistance|the\s*thao/)) return "sports";
-  if (has(/planner|but\b|notebook|sach\b|stationery|van\s*phong\s*pham|book\b/)) return "booksStationery";
-  if (has(/lego|board\s*game|do\s*choi|toy\b|game\b/)) return "toysGames";
-
-  if (has(/may\s*khoan|khoan\b|tua\s*vit|dung\s*cu|tool|hardware|do\s*nghe/)) return "toolsHardware";
-
-  return "other";
-}
-
 export async function POST(request) {
   const ctx = createRequestContext(request, "/api/suggest-from-images");
   let lang = "vi";
@@ -84,7 +34,7 @@ export async function POST(request) {
     });
 
     if (!hasAnyImagePayload) {
-      const inferredCategory = inferFallbackCategoryFromName(payload.productName || "");
+      const inferredCategory = inferCategoryFromProductName(payload.productName || "") || "other";
       const defaults = getMarketplaceDefaults(inferredCategory, undefined);
       const inferredName = String(payload.productName || "").trim();
 

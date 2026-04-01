@@ -10,6 +10,7 @@ import NextGenerationControls from "@/components/next-generation-controls";
 import NextBulkGeneratorPanel from "@/components/next-bulk-generator-panel";
 import NextSelectField from "@/components/next-select-field";
 import NextTextareaField from "@/components/next-textarea-field";
+import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { samplePresets } from "@/lib/product-config";
 import { useProductWorkspace } from "@/hooks/use-product-workspace";
 import { getCopy, getLocalizedProductConfig } from "@/lib/i18n";
@@ -25,6 +26,7 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackType, setFeedbackType] = useState("general");
   const [feedbackSending, setFeedbackSending] = useState(false);
+  const [savingEditedOutput, setSavingEditedOutput] = useState(false);
 
   const {
     session,
@@ -84,6 +86,15 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
       setFeedbackType("general");
     } finally {
       setFeedbackSending(false);
+    }
+  }
+
+  async function handleSaveEditedOutput(nextResult) {
+    setSavingEditedOutput(true);
+    try {
+      await actions.saveEditedResult(nextResult);
+    } finally {
+      setSavingEditedOutput(false);
     }
   }
 
@@ -215,6 +226,9 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               onImprove={() => actions.handleGenerate(true)}
               onCopy={actions.copyResult}
               onDownload={actions.downloadDoc}
+              editable
+              savingEdited={savingEditedOutput}
+              onSaveEditedResult={handleSaveEditedOutput}
               selectedVariant={selectedVariant}
               variants={result?.variants || []}
               onPickVariant={(index) => {
@@ -232,6 +246,9 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               }}
               language={language}
             />
+            {session ? (
+              <div className="output-save-hint">{isVi ? "Có thể chỉnh sửa nội dung ở khung bên trên rồi bấm Lưu để cập nhật lịch sử." : "You can edit content above, then click Save to update history."}</div>
+            ) : null}
             <NextHistoryCard
               session={session}
               history={history}
@@ -243,7 +260,19 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               language={language}
             />
           </section>
-        </section>
+      </section>
+      <NextSupportChatShell
+        language={language}
+        page="scriptProductInfo"
+        user={session}
+        context={{
+          productName: form?.productName || "",
+          category: form?.category || "",
+          hasResult: Boolean(result),
+          hasHistory: Array.isArray(history) && history.length > 0,
+          hasImages: Array.isArray(form?.images) && form.images.length > 0
+        }}
+      />
     </NextPageFrame>
   );
 }

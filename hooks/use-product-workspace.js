@@ -11,6 +11,20 @@ import { getCopy, localizeKnownMessage, toAiLang } from "@/lib/i18n";
 import { trackEvent } from "@/lib/client/telemetry";
 import { getProductIndustryPresets } from "@/lib/product-industry-templates";
 import { getCategoryGroupValue, getCategoryValuesByGroup, getMarketplaceDefaults } from "@/lib/category-marketplace-presets";
+import {
+  buildCategoryFallbackProductName,
+  inferCategoryFromProductName,
+  isUnknownGeneratedProductName,
+  normalizeSuggestedCategory,
+  shouldPreferInferredCategory
+} from "@/lib/category-inference";
+import {
+  applyIndustryPresetToForm,
+  enforceGroupScopedCategory,
+  resolveSuggestedIndustryPresetValue,
+  resolveSuggestedSubcategoryIndex,
+  shouldRequireVisionName
+} from "@/lib/product-workspace-helpers";
 
 const DRAFT_KEY = "seller-studio-next-product-draft";
 const MAX_IMAGE_COUNT = 4;
@@ -87,377 +101,6 @@ function saveOnboardingState(nextState) {
   } catch {
     // noop
   }
-}
-
-function normalizeTextForCategoryCheck(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-    .trim();
-}
-
-function inferCategoryFromProductName(name = "") {
-  const normalized = normalizeTextForCategoryCheck(name);
-  if (!normalized) return "";
-
-  const has = (pattern) => pattern.test(normalized);
-
-  if (has(/voucher|gift\s*card|license|template|preset|khoa\s*hoc\s*online|digital\b/)) return "digitalGoods";
-  if (has(/camera\s*hanh\s*trinh|dash\s*cam|phu\s*kien\s*xe|oto|xe\s*may|moto|o\s*to/)) return "autoMoto";
-  if (has(/drone|flycam|mirrorless|dslr|may\s*anh|camera\b|gimbal/)) return "cameraDrone";
-
-  if (has(/dien\s*thoai|smartphone|iphone|android\b|may\s*tinh\s*bang|tablet|ipad/)) return "phoneTablet";
-  if (has(/balo|backpack|tote|handbag|tui\b/)) return "bags";
-
-  if (has(/laptop|monitor|man\s*hinh|keyboard|ban\s*phim|mouse|chuot|router|wifi|printer|may\s*in|webcam|micro|pc\b/)) return "computerOffice";
-  if (has(/tai\s*nghe|headphone|earbud|loa|speaker|sac|charger|power\s*bank|pin\s*du\s*phong/)) return "electronics";
-
-  if (has(/may\s*rua\s*mat|may\s*say\s*toc|hair\s*dryer|uon\s*toc|straightener|makeup\s*brush|co\s*trang\s*diem|triet\s*long/)) return "beautyTools";
-  if (has(/serum|kem\s*chong\s*nang|sunscreen|sua\s*rua\s*mat|cleanser|toner|kem\s*duong|moisturizer|my\s*pham|skincare/)) return "skincare";
-  if (has(/nuoc\s*hoa|fragrance|perfume|body\s*mist/)) return "fragrance";
-
-  if (has(/binh\s*sua|ta\s*quan|bim|sosinh|baby|me\s*be/)) return "motherBaby";
-  if (has(/huyet\s*ap|vitamin|supplement|suc\s*khoe|health\s*care|thermometer/)) return "healthCare";
-
-  if (has(/\bao\b|dam\s*cong\s*so|dam\s*du\s*tiec|dam\s*nu|\bvay\b|so\s*mi|hoodie|\bquan\b|sleepwear|pajama|pyjama|do\s*ngu|quan\s*ngu|shorts?/)) return "fashion";
-  if (has(/giay|sneaker|sandal|dep\b|boots/)) return "footwear";
-  if (has(/wallet|that\s*lung|belt|khuyen\s*tai|vong\b|phu\s*kien|accessor/)) return "accessories";
-
-  if (has(/noi\s*chien|air\s*fryer|may\s*hut\s*bui|vacuum|may\s*loc\s*khong\s*khi|air\s*purifier|may\s*xay|blender|juicer|home\s*appliance/)) return "homeAppliances";
-  if (has(/vien\s*giat|nuoc\s*giat|detergent|lau\s*san|floor\s*cleaner|tissue|giay\s*ve\s*sinh|dishwash/)) return "householdEssentials";
-  if (has(/ke\s*bep|gia\s*vi|hop\s*dung|do\s*bep|houseware|gia\s*dung|kitchenware/)) return "home";
-  if (has(/sofa|ban\s*tra|\bke\b|shelf|\btu\b|chair|den\s*decor|decor|noi\s*that|furniture/)) return "furnitureDecor";
-
-  if (has(/yen\s*mach|granola|snack|do\s*uong|thuc\s*pham|food|an\s*kieng/)) return "food";
-  if (has(/pate|thuc\s*an\s*cho|thuc\s*an\s*meo|cat\s*litter|pet\b|thu\s*cung|dog|cat/)) return "pet";
-  if (has(/yoga|gym|running|dumbbell|resistance|the\s*thao/)) return "sports";
-  if (has(/planner|but\b|notebook|sach\b|stationery|van\s*phong\s*pham|book\b/)) return "booksStationery";
-  if (has(/lego|board\s*game|do\s*choi|toy\b|game\b/)) return "toysGames";
-  if (has(/may\s*khoan|khoan\b|tua\s*vit|dung\s*cu|tool|hardware|do\s*nghe/)) return "toolsHardware";
-
-  return "";
-}
-
-function shouldRequireVisionName(name = "") {
-  return !String(name || "").trim();
-}
-
-const CANONICAL_CATEGORY_VALUES = new Set([
-  "fashion",
-  "skincare",
-  "beautyTools",
-  "home",
-  "furnitureDecor",
-  "electronics",
-  "food",
-  "householdEssentials",
-  "footwear",
-  "bags",
-  "accessories",
-  "fragrance",
-  "pet",
-  "sports",
-  "motherBaby",
-  "healthCare",
-  "booksStationery",
-  "toysGames",
-  "autoMoto",
-  "phoneTablet",
-  "computerOffice",
-  "cameraDrone",
-  "homeAppliances",
-  "toolsHardware",
-  "digitalGoods",
-  "other"
-]);
-
-function normalizeSuggestedCategory(value = "") {
-  const raw = String(value || "").trim();
-  if (!raw) return "other";
-  if (CANONICAL_CATEGORY_VALUES.has(raw)) return raw;
-
-  const normalized = normalizeTextForCategoryCheck(raw).replace(/\s+/g, "");
-  const aliasMap = {
-    khac: "other",
-    other: "other",
-    unknown: "other",
-    fashion: "fashion",
-    thoitrang: "fashion",
-    skincare: "skincare",
-    mypham: "skincare",
-    beautytools: "beautyTools",
-    dungculamdep: "beautyTools",
-    thietbichamsoccanhan: "beautyTools",
-    home: "home",
-    giadung: "home",
-    furnituredecor: "furnitureDecor",
-    noithat: "furnitureDecor",
-    trangtri: "furnitureDecor",
-    electronics: "electronics",
-    dientu: "electronics",
-    food: "food",
-    thucpham: "food",
-    householdessentials: "householdEssentials",
-    tieudungnhanh: "householdEssentials",
-    hoapham: "householdEssentials",
-    footwear: "footwear",
-    giaydep: "footwear",
-    bags: "bags",
-    tuixach: "bags",
-    accessories: "accessories",
-    phukien: "accessories",
-    fragrance: "fragrance",
-    nuochoa: "fragrance",
-    pet: "pet",
-    thucung: "pet",
-    sports: "sports",
-    thethao: "sports",
-    motherbaby: "motherBaby",
-    mevabe: "motherBaby",
-    healthcare: "healthCare",
-    suckhoe: "healthCare",
-    booksstationery: "booksStationery",
-    sachvanphongpham: "booksStationery",
-    toysgames: "toysGames",
-    dochoi: "toysGames",
-    automoto: "autoMoto",
-    otoxemay: "autoMoto",
-    phonetablet: "phoneTablet",
-    dienthoaitablet: "phoneTablet",
-    computeroffice: "computerOffice",
-    maytinhvanphong: "computerOffice",
-    cameradrone: "cameraDrone",
-    mayanhdrone: "cameraDrone",
-    homeappliances: "homeAppliances",
-    diengiadung: "homeAppliances",
-    toolshardware: "toolsHardware",
-    dungcu: "toolsHardware",
-    digitalgoods: "digitalGoods",
-    sanphamsovoucher: "digitalGoods",
-    voucher: "digitalGoods",
-    noithat: "furnitureDecor",
-    tieudungnhanh: "householdEssentials"
-  };
-
-  return aliasMap[normalized] || "other";
-}
-
-function isUnknownGeneratedProductName(value = "") {
-  const normalized = normalizeTextForCategoryCheck(value);
-  if (!normalized) return true;
-  return /khong nhan dang|khong xac dinh|unable to identify|cannot identify/.test(normalized);
-}
-
-const CATEGORY_FALLBACK_NAMES_BY_LANG = {
-  vi: {
-    fashion: "Sản phẩm thời trang",
-    skincare: "Sản phẩm skincare",
-    beautyTools: "Dụng cụ làm đẹp",
-    home: "Sản phẩm gia dụng",
-    furnitureDecor: "Sản phẩm nội thất trang trí",
-    electronics: "Thiết bị điện tử",
-    food: "Sản phẩm thực phẩm",
-    householdEssentials: "Sản phẩm tiêu dùng nhanh",
-    footwear: "Giày dép",
-    bags: "Túi xách",
-    accessories: "Phụ kiện",
-    fragrance: "Nước hoa",
-    pet: "Sản phẩm thú cưng",
-    sports: "Sản phẩm thể thao",
-    motherBaby: "Sản phẩm mẹ và bé",
-    healthCare: "Sản phẩm chăm sóc sức khỏe",
-    booksStationery: "Sách và văn phòng phẩm",
-    toysGames: "Đồ chơi",
-    autoMoto: "Phụ kiện ô tô xe máy",
-    phoneTablet: "Điện thoại hoặc máy tính bảng",
-    computerOffice: "Thiết bị máy tính văn phòng",
-    cameraDrone: "Thiết bị camera drone",
-    homeAppliances: "Điện gia dụng",
-    toolsHardware: "Dụng cụ và phụ kiện",
-    digitalGoods: "Sản phẩm số",
-    other: "Sản phẩm"
-  },
-  en: {
-    fashion: "Fashion product",
-    skincare: "Skincare product",
-    beautyTools: "Beauty tools product",
-    home: "Home product",
-    furnitureDecor: "Furniture decor product",
-    electronics: "Electronic device",
-    food: "Food product",
-    householdEssentials: "Household essentials product",
-    footwear: "Footwear product",
-    bags: "Bag product",
-    accessories: "Accessory product",
-    fragrance: "Fragrance product",
-    pet: "Pet product",
-    sports: "Sports product",
-    motherBaby: "Mother and baby product",
-    healthCare: "Health care product",
-    booksStationery: "Books and stationery product",
-    toysGames: "Toys and games product",
-    autoMoto: "Auto and moto accessory",
-    phoneTablet: "Phone or tablet",
-    computerOffice: "Computer office device",
-    cameraDrone: "Camera drone device",
-    homeAppliances: "Home appliance",
-    toolsHardware: "Tools and hardware product",
-    digitalGoods: "Digital goods product",
-    other: "Product"
-  }
-};
-
-function buildCategoryFallbackProductName(category = "other", language = "vi") {
-  const langKey = language === "vi" ? "vi" : "en";
-  const dict = CATEGORY_FALLBACK_NAMES_BY_LANG[langKey] || CATEGORY_FALLBACK_NAMES_BY_LANG.en;
-  return dict[category] || dict.other;
-}
-
-function buildSuggestionSignalText({ suggestion, productName = "" } = {}) {
-  const chunks = [productName, suggestion?.generatedProductName, suggestion?.targetCustomer, suggestion?.shortDescription];
-
-  if (Array.isArray(suggestion?.highlights)) {
-    chunks.push(...suggestion.highlights);
-  }
-  if (Array.isArray(suggestion?.notes)) {
-    chunks.push(...suggestion.notes);
-  }
-  if (Array.isArray(suggestion?.attributes)) {
-    for (const item of suggestion.attributes) {
-      if (typeof item === "string") {
-        chunks.push(item);
-      } else {
-        chunks.push(item?.value || "");
-      }
-    }
-  }
-
-  return normalizeTextForCategoryCheck(chunks.filter(Boolean).join(" "));
-}
-
-function pickComputerOfficeIndustryPreset(signal = "", presets = [], fallbackValue = "") {
-  if (!signal) return fallbackValue;
-  const findValue = (keyword) => presets.find((item) => String(item?.value || "").includes(keyword))?.value || "";
-
-  if (/\b(man hinh|monitor|display|screen|ultrawide|ips|hz|inch)\b/.test(signal)) {
-    return findValue("monitor") || fallbackValue;
-  }
-
-  if (/\b(ban phim|chuot|keyboard|mouse|keycap|switch)\b/.test(signal)) {
-    return findValue("input") || fallbackValue;
-  }
-
-  if (/\b(router|wifi|network|mesh|modem|mang)\b/.test(signal)) {
-    return findValue("network") || fallbackValue;
-  }
-
-  return fallbackValue;
-}
-
-function resolveComputerOfficeSubcategoryIndex({ signal = "", industryPreset = "", fallbackIndex = 0 } = {}) {
-  const preset = String(industryPreset || "").toLowerCase();
-  if (preset.includes("monitor")) return 1;
-  if (preset.includes("input")) return 2;
-  if (preset.includes("network")) return 3;
-
-  if (/\b(man hinh|monitor|display|screen|ultrawide|ips|hz|inch)\b/.test(signal)) return 1;
-  if (/\b(ban phim|chuot|keyboard|mouse|keycap|switch)\b/.test(signal)) return 2;
-  if (/\b(router|wifi|network|mesh|modem|mang)\b/.test(signal)) return 3;
-  if (/\b(laptop|may tinh|macbook|notebook)\b/.test(signal)) return 0;
-
-  return Number.isFinite(Number(fallbackIndex)) ? Number(fallbackIndex) : 0;
-}
-
-function resolveSuggestedSubcategoryIndex({
-  category = "other",
-  suggestion = null,
-  productName = "",
-  currentSubcategory = 0,
-  categoryWillChange = false,
-  industryPreset = ""
-} = {}) {
-  const fallbackIndex = categoryWillChange
-    ? 0
-    : (Number.isFinite(Number(currentSubcategory)) ? Number(currentSubcategory) : 0);
-
-  if (category === "computerOffice") {
-    const signal = buildSuggestionSignalText({ suggestion, productName });
-    return resolveComputerOfficeSubcategoryIndex({
-      signal,
-      industryPreset,
-      fallbackIndex
-    });
-  }
-
-  return fallbackIndex;
-}
-
-function applyIndustryPresetToForm(prev, preset) {
-  if (!preset) return prev;
-
-  return {
-    ...prev,
-    industryPreset: preset.value,
-    targetCustomer: preset.targetCustomer || prev.targetCustomer,
-    shortDescription: preset.shortDescription || prev.shortDescription,
-    highlights: preset.highlights || prev.highlights,
-    attributes: preset.attributes || prev.attributes,
-    priceSegment: preset.priceSegment || prev.priceSegment,
-    usage: preset.usage || prev.usage,
-    skinConcern: preset.skinConcern || prev.skinConcern,
-    routineStep: preset.routineStep || prev.routineStep,
-    dimensions: preset.dimensions || prev.dimensions,
-    warranty: preset.warranty || prev.warranty,
-    usageSpace: preset.usageSpace || prev.usageSpace,
-    specs: preset.specs || prev.specs,
-    compatibility: preset.compatibility || prev.compatibility,
-    sizeGuide: preset.sizeGuide || prev.sizeGuide,
-    careGuide: preset.careGuide || prev.careGuide,
-    exchangePolicy: preset.exchangePolicy || prev.exchangePolicy,
-    tone: Number.isFinite(Number(preset.tone)) ? Number(preset.tone) : prev.tone,
-    brandStyle: Number.isFinite(Number(preset.brandStyle)) ? Number(preset.brandStyle) : prev.brandStyle,
-    mood: Number.isFinite(Number(preset.mood)) ? Number(preset.mood) : prev.mood,
-    channel: Number.isFinite(Number(preset.channel)) ? Number(preset.channel) : prev.channel
-  };
-}
-
-function resolveSuggestedIndustryPresetValue({
-  category = "other",
-  suggestion = null,
-  productName = "",
-  currentPreset = "",
-  categoryWillChange = false
-} = {}) {
-  const presets = getProductIndustryPresets(category);
-  if (!presets.length) return String(currentPreset || "");
-
-  const fallbackPreset = String(presets[0]?.value || "");
-  const current = String(currentPreset || "");
-  const signal = buildSuggestionSignalText({ suggestion, productName });
-
-  let preferred = fallbackPreset;
-  if (category === "computerOffice") {
-    preferred = pickComputerOfficeIndustryPreset(signal, presets, fallbackPreset);
-  }
-
-  const isCurrentValid = presets.some((item) => item.value === current);
-  const keepCurrent = Boolean(current && isCurrentValid && !categoryWillChange && current !== fallbackPreset);
-  if (keepCurrent) {
-    return current;
-  }
-
-  return preferred || fallbackPreset || current;
-}
-
-function enforceGroupScopedCategory(formState, groupFilter) {
-  const allowed = getCategoryValuesByGroup(groupFilter);
-  const nextCategory = allowed.includes(formState?.category) ? formState.category : (allowed[0] || "other");
-  return {
-    ...formState,
-    category: nextCategory
-  };
 }
 
 export function useProductWorkspace({ initialHistoryId, samplePresets, language = "vi" }) {
@@ -839,6 +482,43 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     trackEvent("favorite.toggle", { historyId, nextState: !exists });
   }
 
+  async function saveEditedResult(nextResult) {
+    if (!activeHistoryId) {
+      throw new Error(language === "vi" ? "Vui lòng chọn một bản trong lịch sử trước khi lưu chỉnh sửa." : "Please open a history item before saving edits.");
+    }
+
+    const payload = {
+      historyId: activeHistoryId,
+      contentType: "product_copy",
+      title: form.productName || result?.title || "Product content",
+      result: {
+        ...nextResult,
+        paragraphs: Array.isArray(nextResult?.paragraphs)
+          ? nextResult.paragraphs.map((item) => String(item || "").trim()).filter(Boolean)
+          : [],
+        hashtags: Array.isArray(nextResult?.hashtags)
+          ? nextResult.hashtags.map((item) => String(item || "").trim()).filter(Boolean)
+          : [],
+        selectedVariant: Number.isFinite(Number(nextResult?.selectedVariant)) ? Number(nextResult.selectedVariant) : 0,
+        variants: Array.isArray(nextResult?.variants) && nextResult.variants.length ? nextResult.variants : [nextResult]
+      }
+    };
+
+    const data = await apiPost(routes.api.saveHistoryOutput, payload);
+    const updatedItem = data?.item;
+    if (!updatedItem) {
+      throw new Error(language === "vi" ? "Không thể lưu chỉnh sửa lúc này." : "Unable to save edits right now.");
+    }
+
+    openHistoryItem(updatedItem);
+    await refreshUserData();
+    trackEvent("output.save", {
+      page: "scriptProductInfo",
+      historyId: activeHistoryId,
+      contentType: "product_copy"
+    });
+  }
+
   async function deleteHistory(historyId) {
     await apiPost(routes.api.deleteHistory, { historyId });
     await refreshUserData();
@@ -877,15 +557,8 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       let resolvedCategory = suggestedCategory;
       if (!resolvedCategory || resolvedCategory === "other") {
         resolvedCategory = inferredCategory || resolvedCategory || "other";
-      } else if (inferredCategory && inferredCategory !== suggestedCategory) {
-        const suggestedGroup = getCategoryGroupValue(suggestedCategory);
-        const inferredGroup = getCategoryGroupValue(inferredCategory);
-        const isSpecificTechCorrection =
-          new Set(["electronics", "computerOffice", "phoneTablet"]).has(inferredCategory);
-
-        if (suggestedGroup !== inferredGroup || isSpecificTechCorrection) {
-          resolvedCategory = inferredCategory;
-        }
+      } else if (shouldPreferInferredCategory(inferredCategory, suggestedCategory)) {
+        resolvedCategory = inferredCategory;
       }
 
       const potentialMismatch = Boolean(
@@ -1144,6 +817,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       suggestFromImages,
       copyResult,
       downloadDoc,
+      saveEditedResult,
       toggleFavorite,
       deleteHistory,
       setBrandPreset,

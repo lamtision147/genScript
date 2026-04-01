@@ -65,10 +65,10 @@ test.describe("Video Script Page", () => {
 
     await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
 
-    await expect(page.getByText("Tiêu đề:")).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText("Hook mở đầu:")).toBeVisible({ timeout: 30000 });
-    await expect(page.locator(".video-scene-list .output-paragraph").first()).toBeVisible();
-    await expect(page.getByText("CTA:")).toBeVisible();
+    await expect(page.getByText("Video review test")).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText("Hook giữ người xem")).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText("Cảnh 1")).toBeVisible();
+    await expect(page.getByText("CTA test")).toBeVisible();
     await expect(page.getByText("Preview template")).toBeVisible();
 
     await expect(page.getByRole("button", { name: "Áp dụng template ngành" })).toBeVisible();
