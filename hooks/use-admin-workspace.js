@@ -3,17 +3,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { routes } from "@/lib/routes";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 const ADMIN_ERROR_MESSAGES = {
   vi: {
     load: "Không thể tải dữ liệu quản trị.",
     reset: "Không thể đặt lại mật khẩu.",
-    delete: "Không thể xóa người dùng."
+    delete: "Không thể xóa người dùng.",
+    support: "Không thể thao tác trò chuyện hỗ trợ."
   },
   en: {
     load: "Unable to load admin data.",
     reset: "Unable to reset password.",
-    delete: "Unable to delete user."
+    delete: "Unable to delete user.",
+    support: "Unable to process support chat action."
   }
 };
 
@@ -89,11 +92,50 @@ export function useAdminWorkspace(language = "vi") {
   const [usageDays, setUsageDays] = useState(30);
   const [launchMetrics, setLaunchMetrics] = useState(INITIAL_LAUNCH_METRICS);
   const [launchMetricsDays, setLaunchMetricsDays] = useState(14);
+  const [supportConversations, setSupportConversations] = useState([]);
+  const [supportStatus, setSupportStatus] = useState("");
+  const [supportQuery, setSupportQuery] = useState("");
+  const [supportPage, setSupportPage] = useState(1);
+  const [supportMeta, setSupportMeta] = useState(INITIAL_META);
+  const [activeSupportConversationId, setActiveSupportConversationId] = useState("");
+  const [activeSupportConversation, setActiveSupportConversation] = useState(null);
+  const [activeSupportMessages, setActiveSupportMessages] = useState([]);
+  const [supportThreadLoading, setSupportThreadLoading] = useState(false);
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportAdminDraft, setSupportAdminDraft] = useState("");
+  const [supportRealtimeOn, setSupportRealtimeOn] = useState(false);
+  const [billingSubscriptions, setBillingSubscriptions] = useState([]);
+  const [billingQuery, setBillingQuery] = useState("");
+  const [billingPage, setBillingPage] = useState(1);
+  const [billingMeta, setBillingMeta] = useState(INITIAL_META);
+  const [billingChanging, setBillingChanging] = useState({ userId: "", action: "" });
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
   const [message, setMessage] = useState("");
   const [messageCode, setMessageCode] = useState("");
+
+  const refreshSupportConversations = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const data = await apiGet(
+        `${routes.api.adminSupportChat}?status=${encodeURIComponent(supportStatus)}&q=${encodeURIComponent(supportQuery)}&page=${supportPage}&pageSize=20&t=${Date.now()}`,
+        { items: [], meta: INITIAL_META }
+      );
+
+      const nextItems = Array.isArray(data?.items) ? data.items : [];
+      setSupportConversations(nextItems);
+      setSupportMeta(data?.meta || INITIAL_META);
+
+      const hasCurrent = activeSupportConversationId && nextItems.some((item) => item.id === activeSupportConversationId);
+      if (!hasCurrent) {
+        setActiveSupportConversationId(nextItems[0]?.id || "");
+      }
+    } catch (error) {
+      if (!silent) {
+        setMessage(error.message || getAdminErrorMessage(language, "support"));
+        setMessageCode("support_list_failed");
+      }
+    }
+  }, [supportStatus, supportQuery, supportPage, activeSupportConversationId, language]);
 
   const loadAdminData = useCallback(async (opts = {}) => {
     const nextQuery = typeof opts.query === "string" ? opts.query : query;
@@ -105,7 +147,7 @@ export function useAdminWorkspace(language = "vi") {
     setMessage("");
     setMessageCode("");
     try {
-      const [sessionData, usersData, fullUsersData, usageData, launchMetricsData] = await Promise.all([
+      const [sessionData, usersData, fullUsersData, usageData, launchMetricsData, supportData, billingData] = await Promise.all([
         apiGet(routes.api.session, { user: null }),
         apiGet(
           `${routes.api.adminUsers}?q=${encodeURIComponent(nextQuery)}&page=${nextPage}&pageSize=${nextPageSize}`,
@@ -115,7 +157,15 @@ export function useAdminWorkspace(language = "vi") {
           ? apiGet(`${routes.api.adminUsers}?page=1&pageSize=500`, { items: [], meta: { ...INITIAL_META, page: 1, pageSize: 500 } })
           : Promise.resolve(null),
         apiGet(`${routes.api.adminAiUsage}?days=${usageDays}`, INITIAL_USAGE_SUMMARY),
-        apiGet(`${routes.api.adminLaunchMetrics}?days=${launchMetricsDays}`, INITIAL_LAUNCH_METRICS)
+        apiGet(`${routes.api.adminLaunchMetrics}?days=${launchMetricsDays}`, INITIAL_LAUNCH_METRICS),
+        apiGet(
+          `${routes.api.adminSupportChat}?status=${encodeURIComponent(supportStatus)}&q=${encodeURIComponent(supportQuery)}&page=${supportPage}&pageSize=20&t=${Date.now()}`,
+          { items: [], meta: INITIAL_META }
+        ),
+        apiGet(
+          `${routes.api.adminBillingSubscriptions}?q=${encodeURIComponent(billingQuery)}&page=${billingPage}&pageSize=20`,
+          { items: [], meta: INITIAL_META }
+        )
       ]);
 
       setSession(sessionData.user || null);
@@ -127,6 +177,21 @@ export function useAdminWorkspace(language = "vi") {
       }
       setUsageSummary(usageData || INITIAL_USAGE_SUMMARY);
       setLaunchMetrics(launchMetricsData || INITIAL_LAUNCH_METRICS);
+      const nextItems = Array.isArray(supportData?.items) ? supportData.items : [];
+      setSupportConversations(nextItems);
+      setSupportMeta(supportData?.meta || INITIAL_META);
+
+      setBillingSubscriptions(Array.isArray(billingData?.items) ? billingData.items : []);
+      setBillingMeta(billingData?.meta || INITIAL_META);
+
+      const nextActiveId = activeSupportConversationId && nextItems.some((item) => item.id === activeSupportConversationId)
+        ? activeSupportConversationId
+        : (nextItems[0]?.id || "");
+      setActiveSupportConversationId(nextActiveId);
+      if (!nextActiveId) {
+        setActiveSupportConversation(null);
+        setActiveSupportMessages([]);
+      }
     } catch (error) {
       setMessage(error.message || getAdminErrorMessage(language, "load"));
       setMessageCode("load_failed");
@@ -134,18 +199,166 @@ export function useAdminWorkspace(language = "vi") {
       setLoading(false);
       setReady(true);
     }
-  }, [page, pageSize, query, usageDays, launchMetricsDays, language]);
+  }, [page, pageSize, query, usageDays, launchMetricsDays, supportStatus, supportQuery, supportPage, billingQuery, billingPage, language, activeSupportConversationId]);
+
+  const loadSupportThread = useCallback(async (conversationId, { silent = false } = {}) => {
+    if (!conversationId) return;
+    if (!silent) {
+      setSupportThreadLoading(true);
+    }
+    try {
+      const data = await apiGet(`${routes.api.adminSupportChat}?conversationId=${encodeURIComponent(conversationId)}&t=${Date.now()}`, {
+        conversation: null,
+        messages: []
+      });
+      setActiveSupportConversation(data?.conversation || null);
+      setActiveSupportMessages(Array.isArray(data?.messages) ? data.messages : []);
+    } catch (error) {
+      setMessage(error.message || getAdminErrorMessage(language, "support"));
+      setMessageCode("support_thread_failed");
+    } finally {
+      if (!silent) {
+        setSupportThreadLoading(false);
+      }
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (!activeSupportConversationId) return;
+    loadSupportThread(activeSupportConversationId);
+  }, [activeSupportConversationId, loadSupportThread]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    if (!supabase || !activeSupportConversationId) {
+      setSupportRealtimeOn(false);
+      return;
+    }
+
+    const channel = supabase
+      .channel(`admin-support-chat-${activeSupportConversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "support_chat_messages",
+          filter: `conversation_id=eq.${activeSupportConversationId}`
+        },
+        () => {
+          loadSupportThread(activeSupportConversationId, { silent: true });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "support_chat_conversations",
+          filter: `id=eq.${activeSupportConversationId}`
+        },
+        () => {
+          loadSupportThread(activeSupportConversationId, { silent: true });
+        }
+      );
+
+    channel.subscribe((status) => {
+      setSupportRealtimeOn(status === "SUBSCRIBED");
+    });
+
+    return () => {
+      setSupportRealtimeOn(false);
+      supabase.removeChannel(channel).catch(() => {});
+    };
+  }, [activeSupportConversationId, loadSupportThread]);
+
+  useEffect(() => {
+    if (!supportConversations.length) {
+      setActiveSupportConversationId("");
+      setActiveSupportConversation(null);
+      setActiveSupportMessages([]);
+      return;
+    }
+  }, [supportConversations, activeSupportConversationId]);
+
+  useEffect(() => {
+    if (!activeSupportConversationId || supportRealtimeOn) return;
+
+    const timer = setInterval(() => {
+      loadSupportThread(activeSupportConversationId, { silent: true });
+    }, 12000);
+
+    return () => clearInterval(timer);
+  }, [activeSupportConversationId, supportRealtimeOn, loadSupportThread]);
+
+  async function updateSupportRequest(requestId, payload) {
+    try {
+      await apiPost(routes.api.adminSupportChat, { conversationId: requestId, ...payload });
+      setMessage("");
+      setMessageCode("support_update_success");
+      refreshSupportConversations({ silent: true });
+      if (requestId) {
+        loadSupportThread(requestId, { silent: true });
+      }
+    } catch (error) {
+      setMessage(error.message || getAdminErrorMessage(language, "support"));
+      setMessageCode("support_update_failed");
+    }
+  }
+
+  async function sendSupportReply(conversationId, message, status = "") {
+    const safeMessage = String(message || "").trim();
+    if (!conversationId) return;
+    if (!safeMessage && !status) return;
+
+    setSupportSending(true);
+    try {
+      const data = await apiPost(routes.api.adminSupportChat, {
+        conversationId,
+        message: safeMessage,
+        status
+      });
+      setActiveSupportConversation(data?.conversation || null);
+      setActiveSupportMessages(Array.isArray(data?.messages) ? data.messages : []);
+      setSupportAdminDraft("");
+      setMessage("");
+      setMessageCode("support_reply_success");
+      refreshSupportConversations({ silent: true });
+    } catch (error) {
+      setMessage(error.message || getAdminErrorMessage(language, "support"));
+      setMessageCode("support_reply_failed");
+    } finally {
+      setSupportSending(false);
+    }
+  }
+
+  function updateSupportStatus(nextStatus) {
+    setReady(false);
+    setSupportStatus(String(nextStatus || ""));
+    setSupportPage(1);
+  }
+
+  function updateSupportQuery(nextQuery) {
+    setReady(false);
+    setSupportQuery(nextQuery);
+    setSupportPage(1);
+  }
+
+  useEffect(() => {
+    if (!ready) return;
+    refreshSupportConversations({ silent: true });
+  }, [supportStatus, supportQuery, supportPage, ready, refreshSupportConversations]);
 
   useEffect(() => {
     loadAdminData({ includeAllUsers: true });
-  }, [loadAdminData, refreshToken]);
+  }, [loadAdminData]);
 
   async function resetPassword(userId, newPassword) {
     try {
       await apiPost(routes.api.adminUsersResetPassword, { userId, newPassword });
       setMessageCode("reset_success");
       setMessage("");
-      setRefreshToken((prev) => prev + 1);
+      loadAdminData({ includeAllUsers: false });
     } catch (error) {
       setMessage(error.message || getAdminErrorMessage(language, "reset"));
       setMessageCode("reset_failed");
@@ -157,7 +370,7 @@ export function useAdminWorkspace(language = "vi") {
       await apiPost(routes.api.adminUsersDelete, { userId });
       setMessageCode("delete_success");
       setMessage("");
-      setRefreshToken((prev) => prev + 1);
+      loadAdminData({ includeAllUsers: false });
     } catch (error) {
       setMessage(error.message || getAdminErrorMessage(language, "delete"));
       setMessageCode("delete_failed");
@@ -186,6 +399,38 @@ export function useAdminWorkspace(language = "vi") {
     setLaunchMetricsDays(Math.max(1, Math.min(60, Number(nextDays) || 14)));
   }
 
+  async function updateUserPlan(userId, plan) {
+    const normalizedPlan = String(plan || "").trim().toLowerCase();
+    if (!userId || !["free", "pro"].includes(normalizedPlan)) return;
+
+    setBillingChanging({ userId, action: normalizedPlan });
+    try {
+      await apiPost(routes.api.adminBillingSubscriptions, {
+        userId,
+        plan: normalizedPlan
+      });
+      setMessage("");
+      setMessageCode("billing_update_success");
+
+      const data = await apiGet(
+        `${routes.api.adminBillingSubscriptions}?q=${encodeURIComponent(billingQuery)}&page=${billingPage}&pageSize=20`,
+        { items: [], meta: INITIAL_META }
+      );
+      setBillingSubscriptions(Array.isArray(data?.items) ? data.items : []);
+      setBillingMeta(data?.meta || INITIAL_META);
+    } catch (error) {
+      setMessage(error.message || getAdminErrorMessage(language, "load"));
+      setMessageCode("billing_update_failed");
+    } finally {
+      setBillingChanging({ userId: "", action: "" });
+    }
+  }
+
+  function exportBillingCsv() {
+    if (typeof window === "undefined") return;
+    window.open(routes.api.adminBillingExport, "_blank", "noopener,noreferrer");
+  }
+
   return {
     session,
     users,
@@ -198,6 +443,23 @@ export function useAdminWorkspace(language = "vi") {
     usageDays,
     launchMetrics,
     launchMetricsDays,
+    supportConversations,
+    supportStatus,
+    supportQuery,
+    supportPage,
+    supportMeta,
+    activeSupportConversationId,
+    activeSupportConversation,
+    activeSupportMessages,
+    supportThreadLoading,
+    supportSending,
+    supportAdminDraft,
+    supportRealtimeOn,
+    billingSubscriptions,
+    billingQuery,
+    billingPage,
+    billingMeta,
+    billingChanging,
     loading,
     ready,
     message,
@@ -211,6 +473,18 @@ export function useAdminWorkspace(language = "vi") {
       setPageSize: updatePageSize,
       setUsageDays: updateUsageDays,
       setLaunchMetricsDays: updateLaunchMetricsDays,
+      setBillingQuery,
+      setBillingPage,
+      updateUserPlan,
+      exportBillingCsv,
+      updateSupportRequest,
+      sendSupportReply,
+      setSupportStatus: updateSupportStatus,
+      setSupportQuery: updateSupportQuery,
+      setSupportPage,
+      setActiveSupportConversationId,
+      setSupportAdminDraft,
+      refreshSupportConversations,
       setMessage,
       setMessageCode
     }

@@ -128,6 +128,92 @@ test.describe("Upgrade Pro", () => {
     await expect(page.getByText("Thanh toán thành công. Tài khoản đã nâng cấp Pro.")).toBeVisible();
   });
 
+  test("supports stripe checkout button when provider is stripe", async ({ page, context }) => {
+    await context.addCookies([
+      {
+        name: "session_id",
+        value: buildDevSessionToken("user_upgrade_001"),
+        url: "http://127.0.0.1:4174",
+        httpOnly: true,
+        sameSite: "Lax"
+      }
+    ]);
+
+    await page.route("**/api/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user_upgrade_001",
+            name: "Upgrade User",
+            email: "upgrade@example.com",
+            isAdmin: false,
+            plan: "free",
+            planStatus: "active",
+            planLimits: {
+              plan: "free",
+              favoritesLimit: 5,
+              historyLimit: 5,
+              unlimitedFavorites: false,
+              unlimitedHistory: false
+            }
+          }
+        })
+      });
+    });
+
+    await page.route("**/api/billing/plan", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          planInfo: {
+            plan: "free",
+            status: "active",
+            upgradedAt: null,
+            transactionRef: "",
+            provider: "",
+            amount: 0,
+            currency: "VND",
+            limits: {
+              plan: "free",
+              favoritesLimit: 5,
+              historyLimit: 5,
+              unlimitedFavorites: false,
+              unlimitedHistory: false
+            }
+          },
+          payment: {
+            provider: "stripe",
+            stripeReady: true
+          }
+        })
+      });
+    });
+
+    let stripeCalled = false;
+    await page.route("**/api/billing/create-checkout-session", async (route) => {
+      stripeCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          provider: "stripe",
+          checkoutUrl: "http://127.0.0.1:4174/upgrade?checkout=cancel"
+        })
+      });
+    });
+
+    await page.goto("/upgrade");
+    await page.selectOption("#header-language", "vi");
+    await expect(page.getByRole("button", { name: "Thanh toán qua Stripe" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Thanh toán qua Stripe" }).click();
+    expect(stripeCalled).toBeTruthy();
+  });
+
   test("can cancel pro plan back to free", async ({ page, context }) => {
     await context.addCookies([
       {

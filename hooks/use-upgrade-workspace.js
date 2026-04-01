@@ -106,6 +106,43 @@ export function useUpgradeWorkspace(language = "vi") {
     }
   }
 
+  async function startStripeCheckout() {
+    setProcessing(true);
+    setMessage("");
+    try {
+      const data = await apiPost(routes.api.billingCreateCheckoutSession, {
+        language
+      });
+      const checkoutUrl = String(data?.checkoutUrl || "").trim();
+      if (!checkoutUrl) {
+        throw new Error(isVi ? "Không tạo được phiên Stripe checkout." : "Unable to create Stripe checkout session.");
+      }
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      setMessage(error?.message || (isVi ? "Không thể chuyển sang Stripe lúc này." : "Unable to redirect to Stripe right now."));
+      setProcessing(false);
+    }
+  }
+
+  async function confirmStripeCheckout(sessionId) {
+    const normalizedSessionId = String(sessionId || "").trim();
+    if (!normalizedSessionId) return;
+    setProcessing(true);
+    try {
+      const data = await apiPost(routes.api.billingConfirmCheckout, {
+        sessionId: normalizedSessionId
+      });
+      setPlanInfo(data?.planInfo || null);
+      const sessionData = await apiGet(routes.api.session, { user: null });
+      setSession(sessionData?.user || null);
+      setMessage(isVi ? "Thanh toán Stripe thành công. Tài khoản đã nâng cấp Pro." : "Stripe payment successful. Your account is now Pro.");
+    } catch (error) {
+      setMessage(error?.message || (isVi ? "Không xác nhận được thanh toán Stripe." : "Unable to confirm Stripe payment."));
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   async function cancelProPlan() {
     if (!isPro) return;
     setCancelling(true);
@@ -151,6 +188,8 @@ export function useUpgradeWorkspace(language = "vi") {
     actions: {
       refreshPlan,
       submitUpgrade,
+      startStripeCheckout,
+      confirmStripeCheckout,
       cancelProPlan,
       updateCardField,
       setMessage

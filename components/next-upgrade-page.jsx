@@ -6,6 +6,7 @@ import NextTextField from "@/components/next-text-field";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useUpgradeWorkspace } from "@/hooks/use-upgrade-workspace";
 import { routes } from "@/lib/routes";
+import { useEffect } from "react";
 
 export default function NextUpgradePage() {
   const { language, setLanguage } = useUiLanguage("vi");
@@ -27,6 +28,22 @@ export default function NextUpgradePage() {
   const subtitle = isVi
     ? "Mở toàn bộ giới hạn lưu trữ: lịch sử không giới hạn và yêu thích không giới hạn."
     : "Unlock all storage limits: unlimited history and unlimited favorites.";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search || "");
+    const checkoutStatus = String(params.get("checkout") || "").toLowerCase();
+    const sessionId = String(params.get("session_id") || "").trim();
+
+    if (checkoutStatus === "cancel") {
+      actions.setMessage(isVi ? "Bạn đã hủy thanh toán Stripe." : "You cancelled Stripe checkout.");
+      return;
+    }
+
+    if (checkoutStatus === "success" && sessionId) {
+      actions.confirmStripeCheckout(sessionId);
+    }
+  }, [isVi]);
 
   return (
     <NextPageFrame>
@@ -139,6 +156,19 @@ export default function NextUpgradePage() {
                   ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
                   : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
               </button>
+
+              {!isPro && paymentProvider === "stripe" ? (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={processing || loadingPlan}
+                  onClick={actions.startStripeCheckout}
+                >
+                  {processing
+                    ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
+                    : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")}
+                </button>
+              ) : null}
 
               {message ? <div className="history-empty">{message}</div> : null}
             </section>

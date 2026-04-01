@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import NextPageFrame from "@/components/next-page-frame";
 import NextShellHeader from "@/components/next-shell-header";
 import NextAdminUsersTable from "@/components/next-admin-users-table";
+import NextAdminBillingPanel from "@/components/next-admin-billing-panel";
 import { useAdminWorkspace } from "@/hooks/use-admin-workspace";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 
@@ -28,6 +29,23 @@ export default function NextAdminPage() {
     usageDays,
     launchMetrics,
     launchMetricsDays,
+    supportConversations,
+    supportStatus,
+    supportQuery,
+    supportPage,
+    supportMeta,
+    activeSupportConversationId,
+    activeSupportConversation,
+    activeSupportMessages,
+    supportThreadLoading,
+    supportSending,
+    supportAdminDraft,
+    supportRealtimeOn,
+    billingSubscriptions,
+    billingQuery,
+    billingPage,
+    billingMeta,
+    billingChanging,
     loading,
     ready,
     message,
@@ -100,6 +118,18 @@ export default function NextAdminPage() {
           usageDays={usageDays}
           launchMetrics={launchMetrics}
           launchMetricsDays={launchMetricsDays}
+          supportConversations={supportConversations}
+          supportStatus={supportStatus}
+          supportQuery={supportQuery}
+          supportPage={supportPage}
+          supportMeta={supportMeta}
+          activeSupportConversationId={activeSupportConversationId}
+          activeSupportConversation={activeSupportConversation}
+          activeSupportMessages={activeSupportMessages}
+          supportThreadLoading={supportThreadLoading}
+          supportSending={supportSending}
+          supportAdminDraft={supportAdminDraft}
+          realtimeOn={supportRealtimeOn}
           onResetPassword={actions.resetPassword}
           onDeleteUser={actions.deleteUser}
           onQueryChange={actions.setQuery}
@@ -107,7 +137,29 @@ export default function NextAdminPage() {
           onPageSizeChange={actions.setPageSize}
           onUsageDaysChange={actions.setUsageDays}
           onLaunchMetricsDaysChange={actions.setLaunchMetricsDays}
+          onSupportStatusChange={actions.setSupportStatus}
+          onSupportQueryChange={actions.setSupportQuery}
+          onSupportPageChange={actions.setSupportPage}
+          onSupportUpdate={actions.updateSupportRequest}
+          onSupportSelectConversation={actions.setActiveSupportConversationId}
+          onSupportAdminDraftChange={actions.setSupportAdminDraft}
+          onSupportSendReply={actions.sendSupportReply}
           language={language}
+        />
+
+        <NextAdminBillingPanel
+          loading={loading}
+          subscriptions={billingSubscriptions}
+          query={billingQuery}
+          page={billingPage}
+          meta={billingMeta}
+          changing={billingChanging}
+          language={language}
+          onQueryChange={actions.setBillingQuery}
+          onPageChange={actions.setBillingPage}
+          onExport={actions.exportBillingCsv}
+          onUpgrade={(userId) => actions.updateUserPlan(userId, "pro")}
+          onDowngrade={(userId) => actions.updateUserPlan(userId, "free")}
         />
       </section>
     </NextPageFrame>
