@@ -37,6 +37,16 @@ For a reliable Vercel deployment, migrate to:
 
 Use `.env.example` as the base reference.
 
+### Billing + Stripe variables
+
+For production Pro billing with Stripe, also set:
+
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+Detailed runbook: `docs/stripe-production.md`.
+
 ## Suggested next stack
 
 - Next.js
