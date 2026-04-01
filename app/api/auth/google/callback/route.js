@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { consumeOauthState, createSessionAsync, upsertGoogleUser } from "@/lib/server/auth-service";
+import { withSessionCookie } from "@/lib/server/session-response";
 
 async function postJson(url, body) {
   const response = await fetch(url, {
@@ -40,9 +41,9 @@ export async function GET(request) {
     const user = await upsertGoogleUser({ email: String(profile.email || "").toLowerCase(), name: profile.name || "Google User" });
     const sessionId = await createSessionAsync(user.id);
     const response = NextResponse.redirect(new URL("/scriptProductInfo", baseUrl));
-    response.cookies.set("session_id", sessionId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
-    return response;
+    return withSessionCookie(response, sessionId);
   } catch (error) {
+    console.error("[auth][google-callback]", error?.message || error);
     return NextResponse.json({ error: error.message || "Google login failed" }, { status: 400 });
   }
 }

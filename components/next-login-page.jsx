@@ -2,6 +2,7 @@
 
 import NextShellHeader from "@/components/next-shell-header";
 import NextAuthForm from "@/components/next-auth-form";
+import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { useAuthWorkspace } from "@/hooks/use-auth-workspace";
 import NextPageFrame from "@/components/next-page-frame";
 import { getCopy } from "@/lib/i18n";
@@ -45,6 +46,17 @@ export default function NextLoginPage() {
           />
         </section>
       </section>
+      <NextSupportChatShell
+        language={language}
+        page="login"
+        user={session}
+        context={{
+          hasResult: false,
+          hasHistory: false,
+          hasImages: false,
+          category: ""
+        }}
+      />
     </NextPageFrame>
   );
 }

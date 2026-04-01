@@ -46,6 +46,7 @@ For production Pro billing with Stripe, also set:
 - `STRIPE_WEBHOOK_SECRET`
 
 Detailed runbook: `docs/stripe-production.md`.
+Operational checklist: `docs/stripe-go-live-checklist.md`.
 
 ## Suggested next stack
 

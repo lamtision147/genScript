@@ -18,3 +18,14 @@ users-store.json
 .vercel
 
 scripts/benchmark-output/
+
+# local env and local runtime stores
+.env.vercel.production
+ai-usage-store.json
+telemetry-store.json
+feedback-store.json
+auth-otp-store.json
+billing-subscriptions-store.json
+billing-webhook-events-store.json
+support-chat-conversations-store.json
+support-chat-messages-store.json
