@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import NextImageUploadField from "@/components/next-image-upload-field";
 import NextSelectField from "@/components/next-select-field";
 import NextTextField from "@/components/next-text-field";
 import NextTextareaField from "@/components/next-textarea-field";
 import { getCopy } from "@/lib/i18n";
+import { routes } from "@/lib/routes";
 
 function textLineCount(value) {
   if (!value) return 0;
@@ -26,11 +29,12 @@ function inferStylePresetValue(form = {}) {
   return "custom";
 }
 
-function mapStylePresetValues(preset = "balanced") {
-  if (preset === "expert") return { tone: 1, brandStyle: 2, mood: 3 };
-  if (preset === "sales") return { tone: 2, brandStyle: 1, mood: 3 };
-  if (preset === "lifestyle") return { tone: 0, brandStyle: 1, mood: 1 };
-  return { tone: 0, brandStyle: 0, mood: 0 };
+function normalizeStylePresetValue(value, fallback = "balanced") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["balanced", "expert", "sales", "lifestyle", "custom"].includes(normalized)) {
+    return normalized;
+  }
+  return fallback;
 }
 
 export default function NextProductFormPanel({
@@ -63,6 +67,11 @@ export default function NextProductFormPanel({
   suggestion,
   suggestionPulseToken = 0,
   advancedFieldGroup = "none",
+  variantCount = 1,
+  variantStylePresets = [],
+  sessionPlan = "free",
+  onVariantCountChange,
+  onVariantStylePresetChange,
   onGenerate,
   loading,
   language = "vi"
@@ -70,7 +79,12 @@ export default function NextProductFormPanel({
   const highlightsCount = textLineCount(form.highlights);
   const attributesCount = textLineCount(form.attributes);
   const copy = getCopy(language);
+  const isPro = String(sessionPlan || "free") === "pro";
+  const [showProVariantPopup, setShowProVariantPopup] = useState(false);
+  const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
   const stylePresetValue = inferStylePresetValue(form);
+  const [portalReady, setPortalReady] = useState(false);
+  const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
   const stylePresetOptions = language === "vi"
     ? [
         { value: "balanced", label: "Cân bằng (gọn, an toàn)" },
@@ -86,13 +100,122 @@ export default function NextProductFormPanel({
         { value: "lifestyle", label: "Warm lifestyle" },
         { value: "custom", label: "Custom manual" }
       ];
+  const variantStylePresetOptions = stylePresetOptions.filter((option) => option.value !== "custom");
+  const resolvedVariantStylePresets = (() => {
+    const targetCount = isPro ? normalizedVariantCount : 1;
+    const inferred = normalizeStylePresetValue(stylePresetValue, "balanced");
+    const sequence = ["balanced", "expert", "sales", "lifestyle"];
+    const seed = sequence.includes(inferred) ? inferred : "balanced";
+    const rotation = [seed, ...sequence.filter((item) => item !== seed)];
+    const next = [];
 
-  function handleStylePresetChange(nextPreset) {
-    if (nextPreset === "custom") return;
-    const mapped = mapStylePresetValues(nextPreset);
-    onFieldChange("tone", mapped.tone);
-    onFieldChange("brandStyle", mapped.brandStyle);
-    onFieldChange("mood", mapped.mood);
+    for (let index = 0; index < targetCount; index += 1) {
+      const raw = normalizeStylePresetValue(variantStylePresets?.[index], "");
+      if (targetCount > 1) {
+        if (sequence.includes(raw)) {
+          next.push(raw);
+          continue;
+        }
+        next.push(rotation[index % rotation.length] || "balanced");
+        continue;
+      }
+      next.push(raw || inferred);
+    }
+
+    return next;
+  })();
+
+  useEffect(() => {
+    setPortalReady(true);
+    return () => setPortalReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showProVariantPopup) return undefined;
+    const handleEsc = (event) => {
+      if (event.key === "Escape") closeProVariantPopup();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [showProVariantPopup]);
+
+  function handleVariantCountSelect(nextCount) {
+    const normalized = Math.max(1, Math.min(5, Number(nextCount) || 1));
+    if (!isPro && normalized > 1) {
+      setRequestedProVariantCount(normalized);
+      onVariantCountChange?.(1);
+      openProVariantPopup();
+      return;
+    }
+    onVariantCountChange?.(normalized);
+  }
+
+  function openProVariantPopup() {
+    if (isPro) return;
+    setShowProVariantPopup(true);
+  }
+
+  function closeProVariantPopup() {
+    setShowProVariantPopup(false);
+  }
+
+  function handleProPopupBackdropClick(event) {
+    if (event.target === event.currentTarget) {
+      closeProVariantPopup();
+    }
+  }
+
+  function renderProUpsellPopup() {
+    if (!showProVariantPopup || !portalReady) return null;
+
+    return createPortal(
+      <div className="pro-upsell-overlay" role="presentation" onClick={handleProPopupBackdropClick}>
+        <div className="pro-upsell-modal" role="dialog" aria-modal="true" aria-labelledby="pro-upsell-title">
+          <button type="button" className="pro-upsell-close" onClick={closeProVariantPopup} aria-label={language === "vi" ? "Đóng" : "Close"}>×</button>
+          <div className="pro-upsell-badge">
+            <span className="pro-upsell-badge-dot" aria-hidden="true" />
+            <span className="pro-upsell-badge-text">{language === "vi" ? "Gói PRO" : "PRO PLAN"}</span>
+          </div>
+          <h3 id="pro-upsell-title" className="pro-upsell-title">
+            {language === "vi"
+              ? (
+                <>
+                  Tạo nhiều bản nội dung
+                  <br />
+                  khác phong cách chỉ với 1 lần bấm
+                </>
+              )
+              : (
+                <>
+                  Generate multiple content variants
+                  <br />
+                  with different styles in one click
+                </>
+              )}
+          </h3>
+          <p className="pro-upsell-subtitle">
+            {language === "vi"
+              ? "Để có thể tạo nhiều bản nội dung với nhiều phong cách khác nhau, hãy nâng cấp bản PRO để sử dụng."
+              : `You selected ${requestedProVariantCount} variants. Upgrade to PRO to generate multiple style directions from one brief.`}
+          </p>
+          <ul className="pro-upsell-list">
+            <li>{language === "vi" ? "Không giới hạn lượt tạo/cải tiến" : "Unlimited generate/improve requests"}</li>
+            <li>{language === "vi" ? "Tạo nhiều bản nội dung với nhiều phong cách cho cùng 1 brief" : "Generate multiple style variants from the same brief"}</li>
+            <li>{language === "vi" ? "So sánh theo tab, chốt nhanh bản hiệu quả nhất" : "Compare variants in tabs and pick the best performer fast"}</li>
+            <li>{language === "vi" ? "Lưu trữ lịch sử nội dung không giới hạn" : "Unlimited content history storage"}</li>
+          </ul>
+          <div className="pro-upsell-actions">
+            <a className="primary-button pro-upsell-cta" href={routes.upgrade}>
+              {language === "vi" ? "Nâng cấp Pro ngay" : "Upgrade to Pro now"}
+            </a>
+            <button type="button" className="ghost-button" onClick={closeProVariantPopup}>
+              {language === "vi" ? "Tiếp tục với 1 bản" : "Continue with 1 variant"}
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   }
 
   return (
@@ -279,12 +402,53 @@ export default function NextProductFormPanel({
           options={channelOptions}
           onChange={(value) => onFieldChange("channel", value)}
         />
-            <NextSelectField
-              label={language === "vi" ? "Mục tiêu nội dung" : "Content direction"}
-              value={stylePresetValue}
-              options={stylePresetOptions}
-              onChange={handleStylePresetChange}
-            />
+
+            <div className="variant-inline-control">
+              <NextSelectField
+                label={language === "vi" ? "Số bản nội dung" : "Content variants"}
+                value={String(normalizedVariantCount)}
+                options={[
+                  { value: "1", label: language === "vi" ? "1 bản" : "1 variant" },
+                  { value: "2", label: language === "vi" ? "2 bản (Pro)" : "2 variants (Pro)" },
+                  { value: "3", label: language === "vi" ? "3 bản (Pro)" : "3 variants (Pro)" },
+                  { value: "4", label: language === "vi" ? "4 bản (Pro)" : "4 variants (Pro)" },
+                  { value: "5", label: language === "vi" ? "5 bản (Pro)" : "5 variants (Pro)" }
+                ]}
+                onChange={(value) => handleVariantCountSelect(Number(value))}
+              />
+
+              {isPro && normalizedVariantCount > 1
+                ? Array.from({ length: normalizedVariantCount }).map((_, index) => (
+                  <NextSelectField
+                    key={`variant-style-${index + 1}`}
+                    label={language === "vi" ? `Phong cách nội dung bản ${index + 1}` : `Variant ${index + 1} style`}
+                    value={resolvedVariantStylePresets[index] || "balanced"}
+                    options={variantStylePresetOptions}
+                    onChange={(value) => onVariantStylePresetChange?.(index, value)}
+                  />
+                ))
+                : (
+                  <NextSelectField
+                    label={language === "vi" ? "Phong cách nội dung" : "Content style"}
+                    value={resolvedVariantStylePresets[0] || stylePresetValue}
+                    options={stylePresetOptions}
+                    onChange={(value) => onVariantStylePresetChange?.(0, value)}
+                  />
+                )}
+
+              {!isPro ? (
+                <p className="field-helper">
+                  {language === "vi"
+                    ? "Gói Free mặc định 1 bản. Khi chọn từ 2 bản, hệ thống sẽ mở popup nâng cấp Pro."
+                    : "Free plan is fixed at 1 variant. Selecting 2+ variants opens the Pro upgrade popup."}
+                </p>
+              ) : (
+                <p className="field-helper">
+                  {language === "vi" ? `Pro: đang tạo ${normalizedVariantCount} bản nội dung.` : `Pro: generating ${normalizedVariantCount} content variants.`}
+                </p>
+              )}
+            </div>
+
             <details className="advanced-style-details">
               <summary>{language === "vi" ? "Tùy chỉnh nâng cao: Phong cách / Thương hiệu / Mood" : "Advanced: Tone / Brand style / Mood"}</summary>
               <div className="form-grid">
@@ -293,11 +457,13 @@ export default function NextProductFormPanel({
                 <NextSelectField label={copy.form.mood} value={form.mood} options={moodOptions} onChange={(value) => onFieldChange("mood", Number(value))} />
               </div>
             </details>
+
             </fieldset>
       </section>
       <div className="submit-wrap">
         <button className="primary-button" type="button" onClick={onGenerate}>{loading ? copy.form.generating : copy.form.generate}</button>
       </div>
+      {renderProUpsellPopup()}
     </section>
   );
 }

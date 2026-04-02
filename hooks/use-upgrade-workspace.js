@@ -50,6 +50,8 @@ export function useUpgradeWorkspace(language = "vi") {
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState("");
+  const [successPopupOpen, setSuccessPopupOpen] = useState(false);
+  const [successPopupMessage, setSuccessPopupMessage] = useState("");
   const [cardForm, setCardForm] = useState(initialCardForm);
 
   const isVi = language === "vi";
@@ -98,7 +100,10 @@ export function useUpgradeWorkspace(language = "vi") {
       const sessionData = await apiGet(routes.api.session, { user: null });
       setSession(sessionData?.user || null);
       setCardForm(initialCardForm());
-      setMessage(isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.");
+      const successMsg = isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.";
+      setMessage(successMsg);
+      setSuccessPopupMessage(successMsg);
+      setSuccessPopupOpen(true);
     } catch (error) {
       setMessage(error?.message || (isVi ? "Thanh toán thất bại." : "Payment failed."));
     } finally {
@@ -135,7 +140,10 @@ export function useUpgradeWorkspace(language = "vi") {
       setPlanInfo(data?.planInfo || null);
       const sessionData = await apiGet(routes.api.session, { user: null });
       setSession(sessionData?.user || null);
-      setMessage(isVi ? "Thanh toán Stripe thành công. Tài khoản đã nâng cấp Pro." : "Stripe payment successful. Your account is now Pro.");
+      const successMsg = isVi ? "Thanh toán Stripe thành công. Tài khoản đã nâng cấp Pro." : "Stripe payment successful. Your account is now Pro.";
+      setMessage(successMsg);
+      setSuccessPopupMessage(successMsg);
+      setSuccessPopupOpen(true);
     } catch (error) {
       setMessage(error?.message || (isVi ? "Không xác nhận được thanh toán Stripe." : "Unable to confirm Stripe payment."));
     } finally {
@@ -183,6 +191,8 @@ export function useUpgradeWorkspace(language = "vi") {
     processing,
     cancelling,
     message,
+    successPopupOpen,
+    successPopupMessage,
     cardForm,
     isPro,
     actions: {
@@ -192,7 +202,8 @@ export function useUpgradeWorkspace(language = "vi") {
       confirmStripeCheckout,
       cancelProPlan,
       updateCardField,
-      setMessage
+      setMessage,
+      closeSuccessPopup: () => setSuccessPopupOpen(false)
     }
   };
 }

@@ -20,6 +20,52 @@ import { normalizeTextForCategoryCheck } from "@/lib/category-inference";
 import { enforceGroupScopedCategory } from "@/lib/product-workspace-helpers";
 
 const MAX_IMAGE_COUNT = 4;
+const VIDEO_VARIANT_STYLE_SEQUENCE = [0, 1, 2];
+
+function clampOpeningStyle(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(2, Math.floor(parsed)));
+}
+
+function isSameOpeningStyleList(left = [], right = []) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (Number(left[index]) !== Number(right[index])) return false;
+  }
+  return true;
+}
+
+function buildVariantOpeningStyleList(count = 1, seedStyle = 0, existing = []) {
+  const size = Math.max(1, Math.min(5, Number(count) || 1));
+  const seed = clampOpeningStyle(seedStyle, 0);
+  const rotation = [seed, ...VIDEO_VARIANT_STYLE_SEQUENCE.filter((item) => item !== seed)];
+  const next = [];
+
+  for (let index = 0; index < size; index += 1) {
+    const existingStyle = Number(existing?.[index]);
+    if (size > 1) {
+      if (Number.isFinite(existingStyle) && existingStyle >= 0 && existingStyle <= 2) {
+        next.push(clampOpeningStyle(existingStyle, seed));
+      } else {
+        next.push(rotation[index % rotation.length] ?? seed);
+      }
+      continue;
+    }
+    next.push(seed);
+  }
+
+  return next;
+}
+
+function getOpeningStyleLabel(language = "vi", openingStyle = 0) {
+  const isVi = language === "vi";
+  const labels = isVi
+    ? ["Nỗi đau trực diện", "So sánh trước/sau", "Tuyên bố ngược số đông"]
+    : ["Direct pain-point", "Before/after", "Contrarian statement"];
+  return labels[clampOpeningStyle(openingStyle, 0)] || labels[0];
+}
 
 function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -464,6 +510,11 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
   const [message, setMessage] = useState("");
   const [categoryGroupFilter, setCategoryGroupFilter] = useState("fashionBeauty");
   const [resolvedHistoryId, setResolvedHistoryId] = useState(() => String(initialHistoryId || ""));
+  const [generateQuota, setGenerateQuota] = useState(null);
+  const [variantCount, setVariantCount] = useState(1);
+  const [variantOpeningStyles, setVariantOpeningStyles] = useState([0]);
+
+  const isProPlan = String(session?.plan || "free") === "pro";
 
   const categoryOptions = useMemo(() => {
     const groupValues = getCategoryValuesByGroup(categoryGroupFilter);
@@ -539,10 +590,71 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     ];
   }, [language]);
 
+  async function hydrateVariantGroup(groupId, preferredHistoryId = "") {
+    const variantGroupId = String(groupId || "").trim();
+    if (!variantGroupId) return null;
+
+    const data = await apiGet(`${routes.api.history}?type=video_script&variantGroupId=${encodeURIComponent(variantGroupId)}&limit=200`, { items: [] });
+    const groupItems = Array.isArray(data?.items)
+      ? [...data.items].sort((left, right) => {
+        const leftIndex = Number(left?.result?.variantIndex);
+        const rightIndex = Number(right?.result?.variantIndex);
+        if (Number.isFinite(leftIndex) && Number.isFinite(rightIndex)) {
+          return leftIndex - rightIndex;
+        }
+        return String(left?.createdAt || "").localeCompare(String(right?.createdAt || ""));
+      })
+      : [];
+    if (!groupItems.length) return null;
+
+    const variants = groupItems.map((entry, index) => {
+      const variant = entry?.result || {};
+      const styleKey = clampOpeningStyle(variant?.openingStyle, Number(entry?.form?.openingStyle ?? index % 3));
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+      return {
+        ...variant,
+        historyId: entry?.id || null,
+        openingStyle: styleKey,
+        variantStyleLabel: styleLabel,
+        styleLabel,
+        variantGroupId
+      };
+    });
+
+    const selectedIndex = Math.max(0, groupItems.findIndex((entry) => String(entry?.id || "") === String(preferredHistoryId || "")));
+    const selected = variants[selectedIndex] || variants[0];
+
+    return {
+      ...selected,
+      variants,
+      selectedVariant: selectedIndex,
+      historyId: preferredHistoryId || selected?.historyId || null,
+      variantGroupId
+    };
+  }
+
+  useEffect(() => {
+    if (!isProPlan && variantCount !== 1) {
+      setVariantCount(1);
+    }
+  }, [isProPlan, variantCount]);
+
+  useEffect(() => {
+    const targetCount = isProPlan ? variantCount : 1;
+    const seed = clampOpeningStyle(form?.openingStyle, 0);
+    const normalized = buildVariantOpeningStyleList(targetCount, seed, variantOpeningStyles);
+    if (!isSameOpeningStyleList(normalized, variantOpeningStyles)) {
+      setVariantOpeningStyles(normalized);
+    }
+  }, [isProPlan, variantCount, form?.openingStyle]);
+
   useEffect(() => {
     fetch(routes.api.session)
       .then((res) => res.json())
-      .then((data) => setSession(data?.user || null))
+      .then((data) => {
+        setSession(data?.user || null);
+        setGenerateQuota(data?.user?.generateQuota || null);
+      })
       .catch(() => {});
   }, [setSession]);
 
@@ -569,7 +681,37 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       if (data?.item) {
         const item = data.item;
         setActiveHistoryId(item.id || null);
-        setResult(item.result || null);
+        const itemResult = item.result || null;
+        const variants = Array.isArray(itemResult?.variants) && itemResult.variants.length
+          ? itemResult.variants
+          : (itemResult ? [itemResult] : []);
+      const normalizedVariants = variants.map((variant, index) => {
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+        return {
+          ...variant,
+          historyId: variant?.historyId || item?.id || null,
+          openingStyle: styleKey,
+          variantStyleLabel: styleLabel,
+          styleLabel
+        };
+      });
+        const selectedVariant = Number.isFinite(Number(itemResult?.selectedVariant))
+          ? Math.max(0, Math.min(normalizedVariants.length - 1, Number(itemResult.selectedVariant)))
+          : 0;
+        const primary = normalizedVariants[selectedVariant] || normalizedVariants[0] || itemResult;
+        setResult(primary ? {
+          ...primary,
+          variants: normalizedVariants.length ? normalizedVariants : [primary],
+          selectedVariant,
+          variantGroupId: item?.form?.variantGroupId || itemResult?.variantGroupId || ""
+        } : null);
+        setVariantCount(Math.max(1, normalizedVariants.length || 1));
+        setVariantOpeningStyles(
+          normalizedVariants.length
+            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            : [0]
+        );
         setForm((prev) => ({
           ...prev,
           ...(item.form || {}),
@@ -599,9 +741,9 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     const defaults = getDefaultVideoForm("skincare");
     setCategoryGroupFilter(getCategoryGroupValue("skincare"));
     setAutoTemplateMeta(null);
-    setForm({
-      productName: isVi ? "Máy làm sạch da mini" : "Mini facial cleansing device",
-      category: "skincare",
+      setForm({
+        productName: isVi ? "Máy làm sạch da mini" : "Mini facial cleansing device",
+        category: "skincare",
       channel: defaults.channel,
       targetCustomer: isVi ? "Nữ 20-32 tuổi, da dễ bí tắc" : "Women 20-32 with clog-prone skin",
       painPoint: isVi ? "Da sần, makeup không ăn, nhanh bí tắc" : "Rough skin, makeup sits badly, pores clog quickly",
@@ -615,9 +757,11 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       priceSegment: "mid",
       mood: isVi ? defaults.moodVi : defaults.moodEn,
       openingStyle: defaults.openingStyle,
-      scriptMode: "standard",
-      industryPreset: ""
-    });
+        scriptMode: "standard",
+        industryPreset: ""
+      });
+    setVariantCount(1);
+    setVariantOpeningStyles([clampOpeningStyle(defaults.openingStyle, 0)]);
   }
 
   function applyIndustryTemplate() {
@@ -637,6 +781,12 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       scriptMode: template.scriptMode || prev.scriptMode,
       industryPreset: template.value || prev.industryPreset
     }));
+    setVariantOpeningStyles((prev) => {
+      if (!Array.isArray(prev) || !prev.length) return [clampOpeningStyle(template.openingStyle, 0)];
+      const next = [...prev];
+      next[0] = clampOpeningStyle(template.openingStyle, 0);
+      return next;
+    });
   }
 
   function clearForm() {
@@ -645,6 +795,34 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     setAutoTemplateMeta(null);
     setResult(null);
     setMessage("");
+    setVariantCount(1);
+    setVariantOpeningStyles([0]);
+  }
+
+  function setVariantCountValue(nextValue) {
+    const parsed = Number(nextValue);
+    if (!Number.isFinite(parsed)) {
+      setVariantCount(1);
+      return;
+    }
+    const clamped = Math.max(1, Math.min(5, Math.floor(parsed)));
+    setVariantCount(isProPlan ? clamped : 1);
+  }
+
+  function setVariantOpeningStyleAt(index, openingStyle) {
+    const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+    const normalizedStyle = clampOpeningStyle(openingStyle, 0);
+    const targetCount = isProPlan ? variantCount : 1;
+
+    setVariantOpeningStyles((prev) => {
+      const normalized = buildVariantOpeningStyleList(targetCount, form?.openingStyle ?? 0, prev);
+      normalized[targetIndex] = normalizedStyle;
+      return normalized;
+    });
+
+    if (targetIndex === 0) {
+      setForm((prev) => ({ ...prev, openingStyle: normalizedStyle }));
+    }
   }
 
   function setCategoryGroup(nextGroup) {
@@ -672,6 +850,12 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
         industryPreset: presets[0]?.value || ""
       }));
+      setVariantOpeningStyles((prev) => {
+        if (!Array.isArray(prev) || !prev.length) return [clampOpeningStyle(defaults.openingStyle, 0)];
+        const next = [...prev];
+        next[0] = clampOpeningStyle(defaults.openingStyle, 0);
+        return next;
+      });
       return;
     }
 
@@ -691,6 +875,13 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         openingStyle: Math.max(0, Math.min(2, Number(styleDefaults.tone) || defaults.openingStyle)),
         mood
       }));
+      setVariantOpeningStyles((prev) => {
+        const nextStyle = Math.max(0, Math.min(2, Number(styleDefaults.tone) || defaults.openingStyle));
+        if (!Array.isArray(prev) || !prev.length) return [nextStyle];
+        const next = [...prev];
+        next[0] = nextStyle;
+        return next;
+      });
       return;
     }
 
@@ -701,6 +892,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     }
 
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "openingStyle") {
+      setVariantOpeningStyles((prev) => {
+        const nextStyle = clampOpeningStyle(value, 0);
+        if (!Array.isArray(prev) || !prev.length) return [nextStyle];
+        const next = [...prev];
+        next[0] = nextStyle;
+        return next;
+      });
+    }
   }
 
   async function handleImageSelect(event) {
@@ -764,10 +964,10 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       const resolvedTemplate = matchedPreset || presets[0] || aiTemplate;
 
       setCategoryGroupFilter(nextGroup);
-      setForm((prev) => ({
-        ...prev,
-        productName: shouldUseGeneratedName ? generatedName : prev.productName,
-        category: resolvedCategory,
+    setForm((prev) => ({
+      ...prev,
+      productName: shouldUseGeneratedName ? generatedName : prev.productName,
+      category: resolvedCategory,
         durationSec: sanitizeDurationPreset(resolvedTemplate?.durationSec || prev.durationSec || 45),
         scriptMode: resolvedTemplate?.scriptMode || prev.scriptMode || "standard",
         priceSegment: normalizePriceSegment(resolvedTemplate?.priceSegment || prev.priceSegment || "mid"),
@@ -786,6 +986,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
               proofPoint: cleanText(suggested.attributes?.[0]?.value || suggested.shortDescription || "") || prev.proofPoint
             })
       }));
+      setVariantOpeningStyles((prev) => {
+        const inferredStyle = Number.isFinite(Number(suggested?.tone))
+          ? Math.max(0, Math.min(2, Number(suggested.tone)))
+          : defaults.openingStyle;
+        if (!Array.isArray(prev) || !prev.length) return [inferredStyle];
+        const next = [...prev];
+        next[0] = inferredStyle;
+        return next;
+      });
       setAutoTemplateMeta({
         value: resolvedTemplate?.value || "",
         label: resolvedTemplate?.label || "",
@@ -834,13 +1043,19 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     await suggestFromImagesInternal(form.images, "manual");
   }
 
-  async function generateVideoScript() {
+  async function generateVideoScript(options = {}) {
+    const improved = Boolean(options?.improved);
+    const selectedVariant = Number.isFinite(Number(result?.selectedVariant)) ? Number(result.selectedVariant) : 0;
+    const activeVariant = Array.isArray(result?.variants) && result.variants.length
+      ? (result.variants[selectedVariant] || result.variants[0])
+      : result;
     setLoading(true);
     setMessage("");
     trackEvent("generate.submit", {
       page: "scriptVideoReview",
       category: form.category,
       channel: form.channel,
+      improved,
       hasHighlights: Boolean(String(form.highlights || "").trim())
     });
     try {
@@ -852,28 +1067,97 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         durationSec: sanitizeDurationPreset(form.durationSec),
         scriptMode: form.scriptMode || "standard",
         priceSegment: normalizePriceSegment(form.priceSegment || "mid"),
-        industryPreset: form.industryPreset || ""
+        industryPreset: form.industryPreset || "",
+        variantCount: improved ? 1 : (isProPlan ? variantCount : 1),
+        variantOpeningStyles: isProPlan
+          ? buildVariantOpeningStyleList(improved ? 1 : variantCount, form.openingStyle, variantOpeningStyles)
+          : [clampOpeningStyle(form.openingStyle, 0)],
+        improved,
+        previousResult: improved && activeVariant
+          ? {
+              variantIndex: selectedVariant,
+              variantGroupId: result?.variantGroupId || "",
+              variantStyleLabel: activeVariant?.variantStyleLabel || activeVariant?.styleLabel || "",
+              openingStyle: Number.isFinite(Number(activeVariant?.openingStyle))
+                ? Number(activeVariant.openingStyle)
+                : clampOpeningStyle(form.openingStyle, 0)
+            }
+          : null
       });
-      setResult(data?.script || null);
+      const responseScript = data?.script || null;
+      const responseVariants = Array.isArray(data?.variants) && data.variants.length
+        ? data.variants
+        : (Array.isArray(responseScript?.variants) && responseScript.variants.length ? responseScript.variants : (responseScript ? [responseScript] : []));
+      const normalizedVariants = responseVariants.map((variant, index) => {
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+        return {
+          ...variant,
+          historyId: variant?.historyId || data?.historyIds?.[index] || null,
+          openingStyle: styleKey,
+          variantStyleLabel: styleLabel,
+          styleLabel
+        };
+      });
+      const selectedVariant = Number.isFinite(Number(data?.selectedVariant))
+        ? Math.max(0, Math.min(normalizedVariants.length - 1, Number(data.selectedVariant)))
+        : 0;
+      const primaryVariant = normalizedVariants[selectedVariant] || normalizedVariants[0] || responseScript;
+
+      setResult(primaryVariant ? {
+        ...primaryVariant,
+        variants: normalizedVariants.length ? normalizedVariants : [primaryVariant],
+        selectedVariant,
+        variantGroupId: data?.variantGroupId || responseScript?.variantGroupId || ""
+      } : null);
+      setVariantOpeningStyles(
+        normalizedVariants.length
+          ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+          : [clampOpeningStyle(form.openingStyle, 0)]
+      );
       if (data?.historyId) {
         setActiveHistoryId(data.historyId);
       }
+
+      const hydrated = await hydrateVariantGroup(data?.variantGroupId || responseScript?.variantGroupId || "", data?.historyId || "").catch(() => null);
+      if (hydrated) {
+        setResult(hydrated);
+        setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
+        setVariantOpeningStyles(
+          Array.isArray(hydrated?.variants) && hydrated.variants.length
+            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            : [clampOpeningStyle(form.openingStyle, 0)]
+        );
+        setActiveHistoryId(hydrated?.historyId || data?.historyId || null);
+      }
+
       await historyActions.refresh();
       trackEvent("generate.video-script.success", {
         category: form.category,
         channel: form.channel,
+        variantCount: normalizedVariants.length || 1,
+        selectedVariant,
         source: data?.script?.source || "unknown"
       });
       trackEvent("generate.success", {
         page: "scriptVideoReview",
         category: form.category,
         channel: form.channel,
+        variantCount: normalizedVariants.length || 1,
+        selectedVariant,
         source: data?.script?.source || "unknown"
       });
     } catch (error) {
       const fallback = copy?.messages?.generateError || "Không thể tạo nội dung lúc này.";
       const raw = error.message || fallback;
       setMessage(localizeKnownMessage(raw, copy) || raw);
+      fetch(routes.api.session)
+        .then((res) => res.json())
+        .then((data) => {
+          setSession(data?.user || null);
+          setGenerateQuota(data?.user?.generateQuota || null);
+        })
+        .catch(() => {});
       trackEvent("generate.video-script.failed", {
         category: form.category,
         channel: form.channel,
@@ -927,7 +1211,37 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
       const nextHistoryId = updatedItem.id || activeHistoryId;
       setActiveHistoryId(nextHistoryId || null);
-      setResult(updatedItem.result || null);
+      const updatedResult = updatedItem.result || null;
+      const updatedVariants = Array.isArray(updatedResult?.variants) && updatedResult.variants.length
+        ? updatedResult.variants
+        : (updatedResult ? [updatedResult] : []);
+      const normalizedUpdatedVariants = updatedVariants.map((variant, index) => {
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+        return {
+          ...variant,
+          historyId: variant?.historyId || updatedItem?.id || null,
+          openingStyle: styleKey,
+          variantStyleLabel: styleLabel,
+          styleLabel
+        };
+      });
+      const selectedVariant = Number.isFinite(Number(updatedResult?.selectedVariant))
+        ? Math.max(0, Math.min(normalizedUpdatedVariants.length - 1, Number(updatedResult.selectedVariant)))
+        : 0;
+      const primaryUpdated = normalizedUpdatedVariants[selectedVariant] || normalizedUpdatedVariants[0] || updatedResult;
+      setResult(primaryUpdated ? {
+        ...primaryUpdated,
+        variants: normalizedUpdatedVariants.length ? normalizedUpdatedVariants : [primaryUpdated],
+        selectedVariant,
+        variantGroupId: updatedItem?.form?.variantGroupId || updatedResult?.variantGroupId || ""
+      } : null);
+      setVariantCount(Math.max(1, normalizedUpdatedVariants.length || 1));
+      setVariantOpeningStyles(
+        normalizedUpdatedVariants.length
+          ? normalizedUpdatedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+          : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
+      );
       setForm((prev) => ({
         ...prev,
         ...(updatedItem.form || {}),
@@ -937,6 +1251,17 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         priceSegment: normalizePriceSegment(updatedItem?.form?.priceSegment || prev.priceSegment),
         industryPreset: updatedItem?.form?.industryPreset || prev.industryPreset || ""
       }));
+      const hydrated = await hydrateVariantGroup(updatedItem?.form?.variantGroupId || updatedResult?.variantGroupId || "", nextHistoryId).catch(() => null);
+      if (hydrated) {
+        setResult(hydrated);
+        setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
+        setVariantOpeningStyles(
+          Array.isArray(hydrated?.variants) && hydrated.variants.length
+            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
+        );
+        setActiveHistoryId(hydrated?.historyId || nextHistoryId || null);
+      }
       await historyActions.refresh();
       trackEvent("output.save", {
         page: "scriptVideoReview",
@@ -971,11 +1296,17 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     industryPresetCatalog,
     selectedIndustryPreset,
     categoryGroupFilter,
+    generateQuota,
+    variantCount,
+    variantOpeningStyles,
+    isProPlan,
     actions: {
       applySample,
       applyIndustryTemplate,
       clearForm,
       setField,
+      setVariantCount: setVariantCountValue,
+      setVariantOpeningStyleAt,
       setCategoryGroupFilter: setCategoryGroup,
       handleImageSelect,
       removeImage,
@@ -985,7 +1316,37 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       openHistoryItem: (item) => {
         if (!item) return;
         setActiveHistoryId(item.id || null);
-        setResult(item.result || null);
+        const itemResult = item.result || null;
+        const variants = Array.isArray(itemResult?.variants) && itemResult.variants.length
+          ? itemResult.variants
+          : (itemResult ? [itemResult] : []);
+        const normalizedVariants = variants.map((variant, index) => {
+          const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+          const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+          return {
+            ...variant,
+            historyId: variant?.historyId || item?.id || null,
+            openingStyle: styleKey,
+            variantStyleLabel: styleLabel,
+            styleLabel
+          };
+        });
+        const selectedVariant = Number.isFinite(Number(itemResult?.selectedVariant))
+          ? Math.max(0, Math.min(normalizedVariants.length - 1, Number(itemResult.selectedVariant)))
+          : 0;
+        const primary = normalizedVariants[selectedVariant] || normalizedVariants[0] || itemResult;
+        setResult(primary ? {
+          ...primary,
+          variants: normalizedVariants.length ? normalizedVariants : [primary],
+          selectedVariant,
+          variantGroupId: item?.form?.variantGroupId || itemResult?.variantGroupId || ""
+        } : null);
+        setVariantCount(Math.max(1, normalizedVariants.length || 1));
+        setVariantOpeningStyles(
+          normalizedVariants.length
+            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            : [clampOpeningStyle(item?.form?.openingStyle, 0)]
+        );
         setForm((prev) => ({
           ...prev,
           ...(item.form || {}),
@@ -996,6 +1357,22 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           industryPreset: item?.form?.industryPreset || ""
         }));
         setAutoTemplateMeta(null);
+
+        const variantGroupId = String(item?.form?.variantGroupId || itemResult?.variantGroupId || "").trim();
+        if (variantGroupId) {
+          hydrateVariantGroup(variantGroupId, item?.id)
+            .then((hydrated) => {
+              if (!hydrated) return;
+              setResult(hydrated);
+              setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
+              setVariantOpeningStyles(
+                Array.isArray(hydrated?.variants) && hydrated.variants.length
+                  ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+                  : [clampOpeningStyle(item?.form?.openingStyle, 0)]
+              );
+            })
+            .catch(() => {});
+        }
       },
       toggleFavorite: historyActions.toggleFavorite,
       deleteHistory: historyActions.deleteHistory

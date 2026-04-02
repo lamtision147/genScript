@@ -29,6 +29,65 @@ import {
 const DRAFT_KEY = "seller-studio-next-product-draft";
 const MAX_IMAGE_COUNT = 4;
 const ONBOARDING_STATE_KEY = "seller-studio-onboarding-state";
+const MULTI_STYLE_SEQUENCE = ["balanced", "expert", "sales", "lifestyle"];
+
+function inferStylePresetFromFields(source = {}) {
+  const tone = Number(source?.tone);
+  const brandStyle = Number(source?.brandStyle);
+  const mood = Number(source?.mood);
+
+  if (tone === 1 && brandStyle === 2 && mood === 3) return "expert";
+  if (tone === 2 && brandStyle === 1 && mood === 3) return "sales";
+  if (tone === 0 && brandStyle === 1 && mood === 1) return "lifestyle";
+  if (tone === 0 && brandStyle === 0 && mood === 0) return "balanced";
+  return "custom";
+}
+
+function normalizeStylePresetKey(value, fallback = "balanced") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["balanced", "expert", "sales", "lifestyle", "custom"].includes(normalized)) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function isSameStylePresetList(left = [], right = []) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (String(left[index] || "") !== String(right[index] || "")) return false;
+  }
+  return true;
+}
+
+function buildVariantStylePresetList(count = 1, seedPreset = "balanced", existing = []) {
+  const size = Math.max(1, Math.min(5, Number(count) || 1));
+  const normalizedSeed = normalizeStylePresetKey(seedPreset, "balanced");
+  const firstStyle = MULTI_STYLE_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "balanced";
+  const rotation = [firstStyle, ...MULTI_STYLE_SEQUENCE.filter((item) => item !== firstStyle)];
+  const next = [];
+
+  for (let index = 0; index < size; index += 1) {
+    const preset = normalizeStylePresetKey(existing?.[index], "");
+    if (size > 1) {
+      if (MULTI_STYLE_SEQUENCE.includes(preset)) {
+        next.push(preset);
+        continue;
+      }
+      next.push(rotation[index % rotation.length] || "balanced");
+      continue;
+    }
+
+    if (preset === "custom") {
+      next.push("custom");
+      continue;
+    }
+
+    next.push(normalizedSeed);
+  }
+
+  return next;
+}
 
 function bytesToReadableMB(bytes = 0) {
   const value = Number(bytes || 0) / (1024 * 1024);
@@ -122,10 +181,54 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     return enforceGroupScopedCategory({ ...base, ...defaults }, "fashionBeauty");
   });
   const [brandPreset, setBrandPreset] = useState("minimalist");
-  const [variantCount, setVariantCount] = useState(1);
+  const [variantCount, setVariantCountState] = useState(1);
+  const [variantStylePresets, setVariantStylePresets] = useState(["balanced"]);
   const [industrySearchKeyword, setIndustrySearchKeyword] = useState("");
   const [categoryGroupFilter, setCategoryGroupFilter] = useState("fashionBeauty");
   const [onboardingState, setOnboardingState] = useState(() => getOnboardingState());
+  const [generateQuota, setGenerateQuota] = useState(null);
+
+  const isProPlan = String(session?.plan || "free") === "pro";
+  const inferredStylePresetFromForm = useMemo(
+    () => normalizeStylePresetKey(inferStylePresetFromFields(form), "balanced"),
+    [form?.tone, form?.brandStyle, form?.mood]
+  );
+
+  function setVariantCount(nextValue) {
+    const parsed = Number(nextValue);
+    if (!Number.isFinite(parsed)) {
+      setVariantCountState(1);
+      return;
+    }
+    const clamped = Math.max(1, Math.min(5, Math.floor(parsed)));
+    setVariantCountState(isProPlan ? clamped : 1);
+  }
+
+  function setVariantStylePresetAt(index, nextPreset) {
+    const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+    const targetCount = isProPlan ? variantCount : 1;
+    const normalizedPreset = normalizeStylePresetKey(nextPreset, "balanced");
+
+    setVariantStylePresets((prev) => {
+      const inferred = normalizeStylePresetKey(inferStylePresetFromFields(form), "balanced");
+      const seed = normalizeStylePresetKey(prev?.[0], inferred);
+      const next = buildVariantStylePresetList(targetCount, seed, prev);
+      next[targetIndex] = normalizedPreset;
+      return next;
+    });
+
+    if (targetIndex === 0 && normalizedPreset !== "custom") {
+      setForm((prev) => {
+        const mapped = resolveStyleFieldsByPreset(normalizedPreset, prev);
+        return {
+          ...prev,
+          tone: mapped.tone,
+          brandStyle: mapped.brandStyle,
+          mood: mapped.mood
+        };
+      });
+    }
+  }
 
   const industryPresets = useMemo(
     () => getProductIndustryPresets(form?.category),
@@ -193,8 +296,87 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
     ]);
     setSession(sessionRes.user || null);
+    setGenerateQuota(sessionRes?.user?.generateQuota || null);
     setHistory(historyRes.items || []);
     setFavorites(favoritesRes?.items || []);
+  }
+
+  function resolveStylePresetFromForm(nextForm = form) {
+    return inferStylePresetFromFields(nextForm);
+  }
+
+  function resolveStyleFieldsByPreset(stylePreset = "balanced", fallbackForm = form) {
+    const normalized = String(stylePreset || "balanced").trim().toLowerCase();
+    if (normalized === "expert") {
+      return { tone: 1, brandStyle: 2, mood: 3 };
+    }
+    if (normalized === "sales") {
+      return { tone: 2, brandStyle: 1, mood: 3 };
+    }
+    if (normalized === "lifestyle") {
+      return { tone: 0, brandStyle: 1, mood: 1 };
+    }
+    if (normalized === "balanced") {
+      return { tone: 0, brandStyle: 0, mood: 0 };
+    }
+
+    return {
+      tone: Number.isFinite(Number(fallbackForm?.tone)) ? Number(fallbackForm.tone) : 0,
+      brandStyle: Number.isFinite(Number(fallbackForm?.brandStyle)) ? Number(fallbackForm.brandStyle) : 0,
+      mood: Number.isFinite(Number(fallbackForm?.mood)) ? Number(fallbackForm.mood) : 0
+    };
+  }
+
+  function buildLocalVariantStyleLabel(variant = {}, index = 0) {
+    const stylePreset = String(variant?.stylePreset || resolveStylePresetFromForm(variant?.formData || form)).toLowerCase();
+    if (stylePreset === "expert") return language === "vi" ? "Chuyên gia" : "Expert";
+    if (stylePreset === "sales") return language === "vi" ? "Chốt sale" : "Sales";
+    if (stylePreset === "lifestyle") return language === "vi" ? "Lifestyle" : "Lifestyle";
+    if (stylePreset === "balanced") return language === "vi" ? "Cân bằng" : "Balanced";
+    return language === "vi" ? `Biến thể ${index + 1}` : `Variant ${index + 1}`;
+  }
+
+  async function hydrateVariantGroup(groupId, preferredHistoryId = "") {
+    const variantGroupId = String(groupId || "").trim();
+    if (!variantGroupId) return null;
+
+    const data = await apiGet(`${routes.api.history}?type=product_copy&variantGroupId=${encodeURIComponent(variantGroupId)}&limit=200`, { items: [] });
+    const groupItems = Array.isArray(data?.items)
+      ? [...data.items].sort((left, right) => {
+        const leftIndex = Number(left?.result?.variantIndex);
+        const rightIndex = Number(right?.result?.variantIndex);
+        if (Number.isFinite(leftIndex) && Number.isFinite(rightIndex)) {
+          return leftIndex - rightIndex;
+        }
+        return String(left?.createdAt || "").localeCompare(String(right?.createdAt || ""));
+      })
+      : [];
+    if (!groupItems.length) return null;
+
+    const variants = groupItems
+      .map((entry, index) => ({
+        ...(entry?.result || {}),
+        historyId: entry?.id || null,
+        title: entry?.title || entry?.result?.title || "",
+        variantStyleLabel: entry?.result?.variantStyleLabel || entry?.variantLabel || buildLocalVariantStyleLabel(entry?.result, index),
+        stylePreset: entry?.result?.stylePreset || resolveStylePresetFromForm(entry?.form)
+      }))
+      .filter(Boolean);
+
+    if (!variants.length) return null;
+
+    const selectedIndex = Math.max(0, groupItems.findIndex((entry) => String(entry.id) === String(preferredHistoryId)));
+    const selectedVariant = variants[selectedIndex] || variants[0];
+
+    return {
+      ...selectedVariant,
+      variants,
+      selectedVariant: selectedIndex,
+      historyId: preferredHistoryId || selectedVariant?.historyId || null,
+      title: selectedVariant?.title || "",
+      variantLabel: groupItems[selectedIndex]?.variantLabel || selectedVariant?.variantStyleLabel || "",
+      variantGroupId
+    };
   }
 
   useEffect(() => {
@@ -207,6 +389,29 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       if (data?.item) openHistoryItem(data.item);
     }).catch(() => {});
   }, [initialHistoryId]);
+
+  useEffect(() => {
+    if (!isProPlan && variantCount !== 1) {
+      setVariantCountState(1);
+    }
+  }, [isProPlan, variantCount]);
+
+  useEffect(() => {
+    const targetCount = isProPlan ? variantCount : 1;
+    if (targetCount === 1) {
+      const singlePreset = normalizeStylePresetKey(inferredStylePresetFromForm, "balanced");
+      if (!isSameStylePresetList(variantStylePresets, [singlePreset])) {
+        setVariantStylePresets([singlePreset]);
+      }
+      return;
+    }
+
+    const seedPreset = normalizeStylePresetKey(variantStylePresets?.[0], inferredStylePresetFromForm);
+    const normalized = buildVariantStylePresetList(targetCount, seedPreset, variantStylePresets);
+    if (!isSameStylePresetList(normalized, variantStylePresets)) {
+      setVariantStylePresets(normalized);
+    }
+  }, [isProPlan, variantCount, inferredStylePresetFromForm]);
 
   useEffect(() => {
     if (!industryPresets.length) return;
@@ -240,8 +445,18 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       page: "scriptProductInfo"
     });
     try {
+      const stylePresetFromForm = resolveStylePresetFromForm();
+      const stylePresetFromResult = String(result?.stylePreset || "").trim().toLowerCase();
+      const stylePresetForRequest = improved
+        ? (stylePresetFromResult || stylePresetFromForm)
+        : stylePresetFromForm;
+      const styleFields = resolveStyleFieldsByPreset(stylePresetForRequest, form);
+
       const data = await apiPost(routes.api.generate, {
         ...form,
+        tone: styleFields.tone,
+        brandStyle: styleFields.brandStyle,
+        mood: styleFields.mood,
         lang: toAiLang(language),
         attributes: serializeAttributesText(form.attributes),
         highlights: serializeHighlightsText(form.highlights),
@@ -258,20 +473,41 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         careGuide: form.careGuide || "",
         exchangePolicy: form.exchangePolicy || "",
         brandPreset,
-        variantCount,
+        variantCount: improved ? 1 : (isProPlan ? variantCount : 1),
+        stylePreset: stylePresetForRequest,
+        variantStylePresets: improved
+          ? [stylePresetForRequest]
+          : (isProPlan ? buildVariantStylePresetList(variantCount, stylePresetForRequest, variantStylePresets) : [stylePresetForRequest]),
         improved,
         previousResult: improved && result
-          ? { paragraphs: result.paragraphs || [], hashtags: result.hashtags || [] }
+          ? {
+              paragraphs: result.paragraphs || [],
+              hashtags: result.hashtags || [],
+              variantIndex: Number.isFinite(Number(result?.variantIndex)) ? Number(result.variantIndex) : Number(selectedVariant || 0),
+              variantGroupId: result?.variantGroupId || "",
+              variantStyleLabel: result?.variantStyleLabel || "",
+              stylePreset: result?.stylePreset || resolveStylePresetFromForm()
+            }
           : null
       });
       const normalizedResult = {
         ...data,
         variants: Array.isArray(data.variants) && data.variants.length ? data.variants : [data],
-        selectedVariant: data.selectedVariant ?? 0
+        selectedVariant: data.selectedVariant ?? 0,
+        variantGroupId: data?.variantGroupId || result?.variantGroupId || ""
       };
-      setResult(normalizedResult);
-      setSelectedVariant(normalizedResult.selectedVariant);
-      setActiveHistoryId(data.historyId || null);
+
+      const hydratedFromGroup = await hydrateVariantGroup(normalizedResult.variantGroupId, data?.historyId || activeHistoryId || "");
+      if (hydratedFromGroup) {
+        setResult(hydratedFromGroup);
+        setSelectedVariant(hydratedFromGroup.selectedVariant || 0);
+        setActiveHistoryId(hydratedFromGroup.historyId || data?.historyId || null);
+      } else {
+        setResult(normalizedResult);
+        setSelectedVariant(normalizedResult.selectedVariant);
+        setActiveHistoryId(data.historyId || null);
+      }
+
       await refreshUserData();
       trackEvent("generate.success", {
         category: form.category,
@@ -284,6 +520,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     } catch (error) {
       const raw = error.message || copy.messages.generateError;
       setMessage(localizeKnownMessage(raw, copy) || raw);
+      await refreshUserData();
       trackEvent("generate.failed", { error: raw, category: form.category });
     } finally {
       setLoading(false);
@@ -293,6 +530,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   function applySample() {
     const preset = samplePresets[form.category] || samplePresets.fashion;
     setForm((prev) => ({ ...createEmptyProductForm(), ...preset, images: prev.images }));
+    setVariantStylePresets([normalizeStylePresetKey(inferStylePresetFromFields(preset), "balanced")]);
     const nextState = { ...onboardingState, quickstartUsed: true };
     setOnboardingState(nextState);
     saveOnboardingState(nextState);
@@ -316,7 +554,8 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     setSuggestion(null);
     setSelectedVariant(0);
     setBrandPreset("minimalist");
-    setVariantCount(1);
+    setVariantCountState(1);
+    setVariantStylePresets([normalizeStylePresetKey(inferStylePresetFromFields({ ...base, ...defaults }), "balanced")]);
     setCategoryGroupFilter("fashionBeauty");
     setMessage("");
     setActiveHistoryId(null);
@@ -399,7 +638,19 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       handleCategoryChange(value);
       return;
     }
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (["tone", "brandStyle", "mood"].includes(key)) {
+        const inferred = normalizeStylePresetKey(inferStylePresetFromFields(next), "balanced");
+        setVariantStylePresets((prevStyles) => {
+          if (!Array.isArray(prevStyles) || !prevStyles.length) return [inferred];
+          const updated = [...prevStyles];
+          updated[0] = inferred;
+          return updated;
+        });
+      }
+      return next;
+    });
   }
 
   function openHistoryItem(item) {
@@ -409,12 +660,29 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       selectedVariant: Number.isFinite(Number(item.result.selectedVariant)) ? Number(item.result.selectedVariant) : 0,
       historyId: item.id,
       title: item.title,
-      variantLabel: item.variantLabel
+      variantLabel: item.variantLabel,
+      variantGroupId: item?.form?.variantGroupId || ""
     } : null;
     setResult(nextResult);
     setSelectedVariant(nextResult?.selectedVariant ?? 0);
     setActiveHistoryId(item.id || null);
     setForm(restoreProductFormFromHistoryItem(item));
+    const stylesFromResult = Array.isArray(item?.result?.variants) && item.result.variants.length
+      ? item.result.variants.map((variant) => normalizeStylePresetKey(variant?.stylePreset, "balanced"))
+      : [normalizeStylePresetKey(item?.result?.stylePreset || inferStylePresetFromFields(item?.form || {}), "balanced")];
+    setVariantStylePresets(stylesFromResult);
+
+    const variantGroupId = String(item?.form?.variantGroupId || "").trim();
+    if (variantGroupId) {
+      hydrateVariantGroup(variantGroupId, item?.id)
+        .then((hydrated) => {
+          if (!hydrated) return;
+          setResult(hydrated);
+          setSelectedVariant(hydrated.selectedVariant || 0);
+        })
+        .catch(() => {});
+    }
+
     trackEvent("history.open", { historyId: item.id, source: item?.result?.source || null });
     window.requestAnimationFrame(() => {
       document.querySelector(".content-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -506,7 +774,9 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           ? nextResult.hashtags.map((item) => String(item || "").trim()).filter(Boolean)
           : [],
         selectedVariant: Number.isFinite(Number(nextResult?.selectedVariant)) ? Number(nextResult.selectedVariant) : 0,
-        variants: Array.isArray(nextResult?.variants) && nextResult.variants.length ? nextResult.variants : [nextResult]
+        variants: Array.isArray(nextResult?.variants) && nextResult.variants.length ? nextResult.variants : [nextResult],
+        variantStyleLabel: nextResult?.variantStyleLabel || buildLocalVariantStyleLabel(nextResult, Number(nextResult?.selectedVariant || 0)),
+        stylePreset: nextResult?.stylePreset || resolveStylePresetFromForm()
       }
     };
 
@@ -765,28 +1035,6 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     trackEvent("onboarding.skipped", { page: "scriptProductInfo" });
   }
 
-  async function submitFeedback({ type = "general", rating = 0, message: rawMessage = "" } = {}) {
-    const payload = {
-      type: String(type || "general").slice(0, 48),
-      rating: Number.isFinite(Number(rating)) ? Number(rating) : 0,
-      message: String(rawMessage || "").trim().slice(0, 1200),
-      page: "scriptProductInfo",
-      category: form.category,
-      hasImages: Array.isArray(form.images) && form.images.length > 0,
-      hasSuggestion: Boolean(suggestion),
-      hasResult: Boolean(result),
-      language: toAiLang(language)
-    };
-
-    await apiPost(routes.api.feedback, payload);
-    trackEvent("feedback.submit", {
-      type: payload.type,
-      rating: payload.rating,
-      page: payload.page,
-      category: payload.category
-    });
-  }
-
   return {
     session,
     history,
@@ -809,7 +1057,10 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     advancedFieldGroup,
     brandPreset,
     variantCount,
+    variantStylePresets,
+    isProPlan,
     onboardingState,
+    generateQuota,
     actions: {
       handleGenerate,
       applySample,
@@ -828,12 +1079,13 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       deleteHistory,
       setBrandPreset,
       setVariantCount,
+      setVariantStylePresetAt,
       setIndustrySearchKeyword,
-      setCategoryGroupFilter: handleCategoryGroupFilterChange,
-      setResult,
-      setSelectedVariant,
-      dismissOnboarding,
-      submitFeedback
-    }
-  };
+        setCategoryGroupFilter: handleCategoryGroupFilterChange,
+        setResult,
+        setSelectedVariant,
+        setActiveHistoryId,
+        dismissOnboarding
+      }
+    };
 }

@@ -22,6 +22,7 @@ scripts/benchmark-output/
 # local env and local runtime stores
 .env.vercel.production
 ai-usage-store.json
+generate-quota-store.json
 telemetry-store.json
 feedback-store.json
 auth-otp-store.json

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserFromCookiesAsync, isAdminEmail, resolveSupabaseUserId } from "@/lib/server/auth-service";
+import { getCurrentUserFromCookiesAsync, isAdminEmail } from "@/lib/server/auth-service";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { paths, readJsonArray } from "@/lib/server/local-store";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
@@ -47,64 +47,109 @@ async function listSupabaseSubscriptions() {
   const supabase = createServerSupabaseClient();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
-    .from("billing_subscriptions")
-    .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
-    .order("updated_at", { ascending: false })
-    .limit(1000);
+  const [{ data: usersData, error: usersError }, { data: subsData, error: subsError }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id,email,name")
+      .limit(1000),
+    supabase
+      .from("billing_subscriptions")
+      .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1000)
+  ]);
 
-  if (error) {
-    throw new Error(error.message || "Unable to load subscriptions from Supabase");
+  if (usersError) {
+    throw new Error(usersError.message || "Unable to load users from Supabase");
   }
 
-  if (!Array.isArray(data)) return [];
-
-  const userIds = data.map((item) => item.user_id).filter(Boolean);
-  let userMap = new Map();
-  if (userIds.length) {
-    const { data: usersData } = await supabase.from("users").select("id,email,name").in("id", userIds);
-    userMap = new Map((usersData || []).map((row) => [row.id, row]));
+  if (subsError) {
+    throw new Error(subsError.message || "Unable to load subscriptions from Supabase");
   }
 
-  return data.map((row) => {
-    const user = userMap.get(row.user_id) || {};
+  const users = Array.isArray(usersData) ? usersData : [];
+  const subscriptions = Array.isArray(subsData) ? subsData : [];
+  const subscriptionMap = new Map(subscriptions.map((item) => [String(item.user_id || ""), item]));
+
+  const merged = users.map((user) => {
+    const sub = subscriptionMap.get(String(user.id || "")) || null;
     return {
-      userId: row.user_id,
+      userId: user.id,
       email: user.email || "",
       name: user.name || "",
-      plan: row.plan || "free",
-      status: row.status || "active",
-      provider: row.provider || "",
-      transactionRef: row.transaction_ref || "",
-      amount: Number(row.amount || 0),
-      currency: String(row.currency || "VND").toUpperCase(),
-      upgradedAt: row.upgraded_at || null,
-      updatedAt: row.updated_at || null
+      plan: sub?.plan || "free",
+      status: sub?.status || "active",
+      provider: sub?.provider || "",
+      transactionRef: sub?.transaction_ref || "",
+      amount: Number(sub?.amount || 0),
+      currency: String(sub?.currency || "VND").toUpperCase(),
+      upgradedAt: sub?.upgraded_at || null,
+      updatedAt: sub?.updated_at || null
     };
   });
+
+  for (const sub of subscriptions) {
+    const userId = String(sub?.user_id || "");
+    if (!userId || merged.some((item) => item.userId === userId)) continue;
+    merged.push({
+      userId,
+      email: "",
+      name: "",
+      plan: sub?.plan || "free",
+      status: sub?.status || "active",
+      provider: sub?.provider || "",
+      transactionRef: sub?.transaction_ref || "",
+      amount: Number(sub?.amount || 0),
+      currency: String(sub?.currency || "VND").toUpperCase(),
+      upgradedAt: sub?.upgraded_at || null,
+      updatedAt: sub?.updated_at || null
+    });
+  }
+
+  return merged.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
 }
 
 function listLocalSubscriptions() {
   const users = readJsonArray(paths.users);
-  const userMap = new Map(users.map((user) => [String(user.id), user]));
   const rows = readJsonArray(paths.billingSubscriptions);
+  const subscriptionMap = new Map((Array.isArray(rows) ? rows : []).map((row) => [String(row.userId || ""), row]));
 
-  return (Array.isArray(rows) ? rows : []).map((row) => {
-    const user = userMap.get(String(row.userId || "")) || {};
+  const merged = (Array.isArray(users) ? users : []).map((user) => {
+    const sub = subscriptionMap.get(String(user.id || "")) || null;
     return {
-      userId: String(row.userId || ""),
+      userId: String(user.id || ""),
       email: user.email || "",
       name: user.name || "",
-      plan: row.plan || "free",
-      status: row.status || "active",
-      provider: row.provider || "",
-      transactionRef: row.transactionRef || "",
-      amount: Number(row.amount || 0),
-      currency: String(row.currency || "VND").toUpperCase(),
-      upgradedAt: row.upgradedAt || null,
-      updatedAt: row.updatedAt || null
+      plan: sub?.plan || "free",
+      status: sub?.status || "active",
+      provider: sub?.provider || "",
+      transactionRef: sub?.transactionRef || "",
+      amount: Number(sub?.amount || 0),
+      currency: String(sub?.currency || "VND").toUpperCase(),
+      upgradedAt: sub?.upgradedAt || null,
+      updatedAt: sub?.updatedAt || null
     };
   });
+
+  for (const sub of (Array.isArray(rows) ? rows : [])) {
+    const userId = String(sub?.userId || "");
+    if (!userId || merged.some((item) => item.userId === userId)) continue;
+    merged.push({
+      userId,
+      email: "",
+      name: "",
+      plan: sub?.plan || "free",
+      status: sub?.status || "active",
+      provider: sub?.provider || "",
+      transactionRef: sub?.transactionRef || "",
+      amount: Number(sub?.amount || 0),
+      currency: String(sub?.currency || "VND").toUpperCase(),
+      upgradedAt: sub?.upgradedAt || null,
+      updatedAt: sub?.updatedAt || null
+    });
+  }
+
+  return merged.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
 }
 
 export async function GET(request) {

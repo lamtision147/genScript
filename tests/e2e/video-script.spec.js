@@ -78,6 +78,114 @@ test.describe("Video Script Page", () => {
     await expect(page.getByText("Cần đăng nhập để đồng bộ")).toBeVisible();
   });
 
+  test("style selector is single-source and output follows selected style label", async ({ page }) => {
+    await page.goto("/scriptVideoReview");
+    await ensureLanguage(page, "vi");
+
+    await page.route("**/api/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user_video_pro_001",
+            name: "Video Pro",
+            email: "video-pro@test.local",
+            plan: "pro",
+            generateQuota: {
+              isPro: true,
+              videoScript: { remaining: null, limit: null }
+            }
+          }
+        })
+      });
+    });
+
+    await page.route("**/api/history?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+
+    await page.route("**/api/favorites?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+
+    await page.route("**/api/generate-video-script", async (route) => {
+      const body = route.request().postDataJSON();
+      const styles = Array.isArray(body?.variantOpeningStyles) ? body.variantOpeningStyles : [0];
+
+      const styleLabelByIndex = [
+        "Nỗi đau trực diện",
+        "So sánh trước/sau",
+        "Tuyên bố ngược số đông"
+      ];
+
+      const variants = styles.map((style, index) => ({
+        title: `Kịch bản ${index + 1}`,
+        hook: `Hook ${index + 1}`,
+        scenes: [{ label: `Cảnh ${index + 1}`, voice: `Voice ${index + 1}`, visual: `Visual ${index + 1}` }],
+        cta: `CTA ${index + 1}`,
+        hashtags: [`#v${index + 1}`],
+        shotList: [`Shot ${index + 1}`],
+        source: "ai",
+        quality: { score: 88 - index, grade: "A" },
+        openingStyle: Number(style) || 0,
+        variantStyleLabel: styleLabelByIndex[Number(style) || 0],
+        historyId: `video_hist_style_${index + 1}`,
+        variantGroupId: "video_group_style_test"
+      }));
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          historyId: variants[0]?.historyId || null,
+          historyIds: variants.map((item) => item.historyId),
+          variantGroupId: "video_group_style_test",
+          selectedVariant: 0,
+          variants,
+          script: {
+            ...variants[0],
+            variants,
+            selectedVariant: 0
+          }
+        })
+      });
+    });
+
+    await expect(page.getByLabel("Phong cách nội dung")).toHaveCount(1);
+    await expect(page.getByLabel("Số bản nội dung")).toHaveValue("1");
+
+    await page.getByLabel("Số bản nội dung").selectOption("2");
+    await expect(page.getByLabel("Phong cách nội dung")).toHaveCount(0);
+    await expect(page.getByLabel("Phong cách nội dung bản 1")).toBeVisible();
+    await expect(page.getByLabel("Phong cách nội dung bản 2")).toBeVisible();
+
+    await page.getByLabel("Phong cách nội dung bản 1").selectOption("2");
+    await page.getByLabel("Phong cách nội dung bản 2").selectOption("0");
+
+    await page.getByLabel("Tên sản phẩm").fill("Mic mini review");
+    await page.getByLabel("Nỗi đau chính của người xem").fill("Ghi âm dở khi quay ngoài trời");
+    await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Lọc ồn tốt\nNhỏ gọn\nKết nối nhanh");
+    await page.getByLabel("Bằng chứng chính").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
+
+    await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
+
+    await expect(page.getByRole("button", { name: "Tuyên bố ngược số đông" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Nỗi đau trực diện" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Nỗi đau trực diện" }).click();
+    await expect(page.getByText("Hook 2")).toBeVisible();
+    await expect(page.getByText("Phong cách đã áp dụng: Tiêu chuẩn · Nỗi đau trực diện")).toBeVisible();
+  });
+
   test("supports category group filter for expanded industries", async ({ page }) => {
     await page.goto("/scriptVideoReview");
     await ensureLanguage(page, "vi");

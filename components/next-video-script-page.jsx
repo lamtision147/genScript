@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import NextPageFrame from "@/components/next-page-frame";
 import NextShellHeader from "@/components/next-shell-header";
 import NextSelectField from "@/components/next-select-field";
@@ -10,6 +10,7 @@ import NextImageUploadField from "@/components/next-image-upload-field";
 import NextHistoryCard from "@/components/next-history-card";
 import NextOutputCard from "@/components/next-output-card";
 import NextSupportChatShell from "@/components/next-support-chat-shell";
+import { createPortal } from "react-dom";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useVideoScriptWorkspace } from "@/hooks/use-video-script-workspace";
 import { getCopy } from "@/lib/i18n";
@@ -91,17 +92,23 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     activeHistoryId,
     localizedConfig,
     openingStyleOptions,
-    moodPresetOptions,
     scriptModeOptions,
     categoryOptions,
     industryPresetOptions,
     industryPresetCatalog,
     selectedIndustryPreset,
     categoryGroupFilter,
+    generateQuota,
+    variantCount,
+    variantOpeningStyles,
+    isProPlan,
     actions
   } = useVideoScriptWorkspace(language, { initialHistoryId });
 
   const [templateKeyword, setTemplateKeyword] = useState("");
+  const [showProVariantPopup, setShowProVariantPopup] = useState(false);
+  const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
+  const [portalReady, setPortalReady] = useState(false);
   const categoryGroupOptions = getCategoryGroupOptions(language);
   const filteredIndustryPresetOptions = useMemo(() => {
     const keyword = String(templateKeyword || "").trim().toLowerCase();
@@ -118,14 +125,150 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   }, [templateKeyword, industryPresetOptions, industryPresetCatalog]);
 
   const outputData = buildResultAsProductLike(result);
+  const videoQuota = generateQuota?.videoScript || null;
+  const isPro = Boolean(generateQuota?.isPro || session?.plan === "pro" || isProPlan);
+  const quotaHintText = isPro
+    ? (isVi ? "Pro: không giới hạn lượt tạo/cải tiến kịch bản trong ngày." : "Pro: unlimited video generate/improve requests per day.")
+    : (isVi
+      ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay (tính cả Cải tiến).`
+      : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today (including Improve).`);
+  const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
+  const resolvedVariantOpeningStyles = (() => {
+    const sequence = [0, 1, 2];
+    const seed = Number.isFinite(Number(form?.openingStyle)) ? Math.max(0, Math.min(2, Number(form.openingStyle))) : 0;
+    const rotation = [seed, ...sequence.filter((item) => item !== seed)];
+    const next = [];
+    const size = isProPlan ? normalizedVariantCount : 1;
+    for (let index = 0; index < size; index += 1) {
+      const parsed = Number(variantOpeningStyles?.[index]);
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 2) {
+        next.push(parsed);
+      } else if (size > 1) {
+        next.push(rotation[index % rotation.length] || seed);
+      } else {
+        next.push(seed);
+      }
+    }
+    return next;
+  })();
+
+  const selectedVariantIndex = Number.isFinite(Number(result?.selectedVariant)) ? Number(result.selectedVariant) : 0;
+  const outputVariants = Array.isArray(result?.variants) && result.variants.length
+    ? result.variants.map((variant, index) => ({
+      ...buildResultAsProductLike(variant),
+      historyId: variant?.historyId || result?.historyId || null,
+      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || (openingStyleOptions[Number(variant?.openingStyle ?? index % 3)] || `${isVi ? "Bản" : "Variant"} ${index + 1}`),
+      openingStyle: Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : (index % 3),
+      variantGroupId: variant?.variantGroupId || result?.variantGroupId || ""
+    }))
+    : (outputData ? [{
+      ...outputData,
+      historyId: result?.historyId || null,
+      variantStyleLabel: result?.variantStyleLabel || openingStyleOptions[Number(form?.openingStyle) || 0],
+      openingStyle: Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0,
+      variantGroupId: result?.variantGroupId || ""
+    }] : []);
+
+  const activeOutputVariant = outputVariants[selectedVariantIndex] || outputVariants[0] || outputData || null;
+  const profileOpeningIdx = Number(activeOutputVariant?.openingStyle ?? form?.openingStyle);
+  const profileLabel = (() => {
+    const mode = String(form?.scriptMode || "standard").toLowerCase() === "teleprompter"
+      ? (isVi ? "Teleprompter" : "Teleprompter")
+      : (isVi ? "Tiêu chuẩn" : "Standard");
+    const opening = openingStyleOptions[profileOpeningIdx] || "";
+    return opening ? `${mode} · ${opening}` : mode;
+  })();
+
+  useEffect(() => {
+    setPortalReady(true);
+    return () => setPortalReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showProVariantPopup) return undefined;
+    const handleEsc = (event) => {
+      if (event.key === "Escape") closeProVariantPopup();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [showProVariantPopup]);
+
+  function openProVariantPopup(nextCount = 2) {
+    setRequestedProVariantCount(Math.max(2, Math.min(5, Number(nextCount) || 2)));
+    setShowProVariantPopup(true);
+  }
+
+  function closeProVariantPopup() {
+    setShowProVariantPopup(false);
+  }
+
+  function handleVariantCountSelect(nextCount) {
+    const normalized = Math.max(1, Math.min(5, Number(nextCount) || 1));
+    if (!isProPlan && normalized > 1) {
+      actions.setVariantCount?.(1);
+      openProVariantPopup(normalized);
+      return;
+    }
+    actions.setVariantCount?.(normalized);
+  }
+
+  function renderProUpsellPopup() {
+    if (!showProVariantPopup || !portalReady) return null;
+    return createPortal(
+      <div className="pro-upsell-overlay" role="presentation" onClick={(event) => {
+        if (event.target === event.currentTarget) closeProVariantPopup();
+      }}>
+        <div className="pro-upsell-modal" role="dialog" aria-modal="true" aria-labelledby="video-pro-upsell-title">
+          <button type="button" className="pro-upsell-close" onClick={closeProVariantPopup} aria-label={isVi ? "Đóng" : "Close"}>×</button>
+          <div className="pro-upsell-badge">
+            <span className="pro-upsell-badge-dot" aria-hidden="true" />
+            <span className="pro-upsell-badge-text">{isVi ? "Gói PRO" : "PRO PLAN"}</span>
+          </div>
+          <h3 id="video-pro-upsell-title" className="pro-upsell-title">
+            {isVi ? (
+              <>
+                Tạo nhiều bản kịch bản video
+                <br />
+                khác phong cách chỉ với 1 lần bấm
+              </>
+            ) : (
+              <>
+                Generate multiple video scripts
+                <br />
+                with different styles in one click
+              </>
+            )}
+          </h3>
+          <p className="pro-upsell-subtitle">
+            {isVi
+              ? `Bạn vừa chọn ${requestedProVariantCount} bản. Nâng cấp PRO để mở nhiều phiên bản nội dung và chọn bản hiệu quả nhất.`
+              : `You selected ${requestedProVariantCount} variants. Upgrade to PRO to unlock multi-style scripts and pick the best performer.`}
+          </p>
+          <ul className="pro-upsell-list">
+            <li>{isVi ? "Không giới hạn lượt tạo/cải tiến" : "Unlimited generate/improve requests"}</li>
+            <li>{isVi ? "Tạo nhiều bản kịch bản cho cùng 1 brief" : "Generate multiple scripts from one brief"}</li>
+            <li>{isVi ? "So sánh theo tab, chốt nhanh bản tốt nhất" : "Compare in tabs and pick the best script quickly"}</li>
+            <li>{isVi ? "Lưu trữ lịch sử nội dung không giới hạn" : "Unlimited history storage"}</li>
+          </ul>
+          <div className="pro-upsell-actions">
+            <a className="primary-button pro-upsell-cta" href={routes.upgrade}>{isVi ? "Nâng cấp Pro ngay" : "Upgrade to Pro now"}</a>
+            <button type="button" className="ghost-button" onClick={closeProVariantPopup}>{isVi ? "Tiếp tục với 1 bản" : "Continue with 1 variant"}</button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   async function handleCopy() {
-    await copyResultText(outputData);
+    const target = activeOutputVariant || outputData;
+    await copyResultText(target);
   }
 
   function handleDownload() {
     const fallbackTitle = isVi ? "Kịch bản review video" : "Video review script";
-    downloadResultDoc(outputData, result?.title || form.productName || fallbackTitle);
+    const target = activeOutputVariant || outputData;
+    downloadResultDoc(target, result?.title || form.productName || fallbackTitle);
   }
 
   function toProductLikeForSave(nextResult) {
@@ -157,6 +300,35 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       scenes,
       hashtags: Array.isArray(nextResult?.hashtags) ? nextResult.hashtags : (Array.isArray(result?.hashtags) ? result.hashtags : []),
       shotList: Array.isArray(nextResult?.shotList) ? nextResult.shotList : (Array.isArray(result?.shotList) ? result.shotList : [])
+    };
+  }
+
+  function toVideoResultFromOutputVariant(variant = null) {
+    if (!variant) return null;
+    const paragraphs = Array.isArray(variant?.paragraphs) ? variant.paragraphs : [];
+    const firstBlock = String(paragraphs[0] || "").trim();
+    const firstLines = firstBlock.split("\n").map((line) => line.trim()).filter(Boolean);
+    const title = String(variant?.title || firstLines[0] || "").trim();
+    const hook = String(variant?.hook || firstLines.slice(1).join(" ") || "").trim();
+    const scenes = Array.isArray(variant?.scenes) && variant.scenes.length
+      ? variant.scenes
+      : parseSceneBlocksFromParagraph(paragraphs[1] || "", language);
+    const cta = String(variant?.cta || String(paragraphs[2] || "").split("\n")[0].trim()).trim();
+
+    return {
+      ...(result || {}),
+      ...(variant || {}),
+      title,
+      hook,
+      scenes,
+      cta,
+      hashtags: Array.isArray(variant?.hashtags) ? variant.hashtags : [],
+      shotList: Array.isArray(variant?.shotList) ? variant.shotList : [],
+      openingStyle: Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : Number(form?.openingStyle || 0),
+      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || "",
+      variantGroupId: variant?.variantGroupId || result?.variantGroupId || "",
+      selectedVariant: Number.isFinite(Number(result?.selectedVariant)) ? Number(result.selectedVariant) : 0,
+      variants: Array.isArray(result?.variants) && result.variants.length ? result.variants : [variant]
     };
   }
 
@@ -338,19 +510,50 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
               placeholder={isVi ? "Ví dụ: Sau 7 ngày da đều màu hơn khi quay camera thường" : "Example: After 7 days skin tone looked more even on normal camera"}
             />
 
-            <div className="form-grid">
+            <div className="variant-inline-control">
               <NextSelectField
-                label={isVi ? "Kiểu mở đầu" : "Opening style"}
-                value={form.openingStyle}
-                options={openingStyleOptions.map((label, idx) => ({ value: idx, label }))}
-                onChange={(value) => actions.setField("openingStyle", Number(value))}
+                label={isVi ? "Số bản nội dung" : "Content variants"}
+                value={String(normalizedVariantCount)}
+                options={[
+                  { value: "1", label: isVi ? "1 bản" : "1 variant" },
+                  { value: "2", label: isVi ? "2 bản (Pro)" : "2 variants (Pro)" },
+                  { value: "3", label: isVi ? "3 bản (Pro)" : "3 variants (Pro)" },
+                  { value: "4", label: isVi ? "4 bản (Pro)" : "4 variants (Pro)" },
+                  { value: "5", label: isVi ? "5 bản (Pro)" : "5 variants (Pro)" }
+                ]}
+                onChange={(value) => handleVariantCountSelect(Number(value))}
               />
-              <NextSelectField
-                label={isVi ? "Mood nội dung" : "Content mood"}
-                value={form.mood}
-                options={moodPresetOptions.map((label) => ({ value: label, label }))}
-                onChange={(value) => actions.setField("mood", value)}
-              />
+
+              {isProPlan && normalizedVariantCount > 1
+                ? Array.from({ length: normalizedVariantCount }).map((_, index) => (
+                  <NextSelectField
+                    key={`video-variant-style-${index + 1}`}
+                    label={isVi ? `Phong cách nội dung bản ${index + 1}` : `Variant ${index + 1} style`}
+                    value={String(resolvedVariantOpeningStyles[index] ?? 0)}
+                    options={openingStyleOptions.map((label, idx) => ({ value: String(idx), label }))}
+                    onChange={(value) => actions.setVariantOpeningStyleAt?.(index, Number(value))}
+                  />
+                ))
+                : (
+                  <NextSelectField
+                    label={isVi ? "Phong cách nội dung" : "Content style"}
+                    value={String(resolvedVariantOpeningStyles[0] ?? form.openingStyle ?? 0)}
+                    options={openingStyleOptions.map((label, idx) => ({ value: String(idx), label }))}
+                    onChange={(value) => actions.setVariantOpeningStyleAt?.(0, Number(value))}
+                  />
+                )}
+
+              {!isProPlan ? (
+                <p className="field-helper">
+                  {isVi
+                    ? "Gói Free mặc định 1 bản. Khi chọn từ 2 bản, hệ thống sẽ mở popup nâng cấp Pro."
+                    : "Free plan is fixed at 1 variant. Selecting 2+ variants opens the Pro upgrade popup."}
+                </p>
+              ) : (
+                <p className="field-helper">
+                  {isVi ? `Pro: đang tạo ${normalizedVariantCount} bản kịch bản video.` : `Pro: generating ${normalizedVariantCount} video script variants.`}
+                </p>
+              )}
             </div>
 
             <NextSelectField
@@ -375,6 +578,12 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 {loading ? (isVi ? "Đang tạo kịch bản..." : "Generating script...") : (isVi ? "Tạo kịch bản video" : "Generate video script")}
               </button>
             </div>
+
+            <div className={`quota-note-card ${isPro ? "pro" : "free"}`}>
+              <strong>{isVi ? "Quota hôm nay" : "Today quota"}</strong>
+              <span>{quotaHintText}</span>
+              {!isPro ? <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
+            </div>
             </fieldset>
           </section>
         </section>
@@ -386,17 +595,60 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
 
           <NextOutputCard
             loading={loading}
-            result={outputData}
+            result={activeOutputVariant}
             message={message}
             session={session}
-            onImprove={null}
+            onImprove={() => actions.generateVideoScript({ improved: true })}
             onCopy={handleCopy}
             onDownload={handleDownload}
             editable
             savingEdited={savingEdited}
+            selectedVariant={selectedVariantIndex}
+            variants={outputVariants}
+            onPickVariant={(index) => {
+              const next = outputVariants[index];
+              if (!next) return;
+              if (next?.historyId && String(next.historyId) !== String(activeHistoryId || "")) {
+                const historyItem = history.find((item) => String(item?.id) === String(next.historyId));
+                if (historyItem) {
+                  actions.openHistoryItem?.(historyItem);
+                  return;
+                }
+              }
+              const nextVideoResult = toVideoResultFromOutputVariant(next);
+              if (!nextVideoResult) return;
+              const nextVariants = outputVariants
+                .map((variantItem) => toVideoResultFromOutputVariant(variantItem))
+                .filter(Boolean);
+              actions.openHistoryItem?.({
+                id: next?.historyId || activeHistoryId,
+                form: {
+                  ...form,
+                  variantGroupId: next?.variantGroupId || result?.variantGroupId || ""
+                },
+                result: {
+                  ...nextVideoResult,
+                  variants: nextVariants.length ? nextVariants : [nextVideoResult],
+                  selectedVariant: index
+                }
+              });
+            }}
             onSaveEditedResult={async (nextProductLike) => {
-              const nextVideoResult = toProductLikeForSave(nextProductLike);
+              const nextVideoResult = toProductLikeForSave({
+                ...nextProductLike,
+                openingStyle: Number.isFinite(Number(activeOutputVariant?.openingStyle))
+                  ? Number(activeOutputVariant.openingStyle)
+                  : Number(form?.openingStyle || 0),
+                variantStyleLabel: activeOutputVariant?.variantStyleLabel || activeOutputVariant?.styleLabel || "",
+                variantGroupId: activeOutputVariant?.variantGroupId || result?.variantGroupId || "",
+                variantIndex: selectedVariantIndex,
+                selectedVariant: selectedVariantIndex,
+                variants: Array.isArray(result?.variants) && result.variants.length ? result.variants : undefined
+              });
               await actions.saveEditedResult(nextVideoResult);
+            }}
+            profileMeta={{
+              profileLabel
             }}
             language={language}
           />
@@ -419,6 +671,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
           ) : null}
         </section>
       </section>
+      {renderProUpsellPopup()}
       <NextSupportChatShell
         language={language}
         page="scriptVideoReview"

@@ -6,10 +6,6 @@ import NextHistoryCard from "@/components/next-history-card";
 import NextOutputCard from "@/components/next-output-card";
 import NextProductFormPanel from "@/components/next-product-form-panel";
 import NextPageFrame from "@/components/next-page-frame";
-import NextGenerationControls from "@/components/next-generation-controls";
-import NextBulkGeneratorPanel from "@/components/next-bulk-generator-panel";
-import NextSelectField from "@/components/next-select-field";
-import NextTextareaField from "@/components/next-textarea-field";
 import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { samplePresets } from "@/lib/product-config";
 import { useProductWorkspace } from "@/hooks/use-product-workspace";
@@ -23,10 +19,6 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   const copy = getCopy(language);
   const localized = getLocalizedProductConfig(language);
   const isVi = language === "vi";
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [feedbackRating, setFeedbackRating] = useState(0);
-  const [feedbackType, setFeedbackType] = useState("general");
-  const [feedbackSending, setFeedbackSending] = useState(false);
   const [savingEditedOutput, setSavingEditedOutput] = useState(false);
 
   const {
@@ -48,9 +40,11 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
     industrySearchKeyword,
     categoryGroupFilter,
     advancedFieldGroup,
-    brandPreset,
     variantCount,
+    variantStylePresets,
+    isProPlan,
     onboardingState,
+    generateQuota,
     actions
   } = useProductWorkspace({ initialHistoryId, samplePresets, language });
 
@@ -70,25 +64,40 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
 
   const currentSubcategories = localized.subcategoryMap[form?.category] || localized.subcategoryMap.other || [];
   const groupCategories = getCategoryValuesByGroup(categoryGroupFilter);
+  const productQuota = generateQuota?.productCopy || null;
+  const isPro = Boolean(generateQuota?.isPro || session?.plan === "pro");
+  const quotaHintText = isPro
+    ? (isVi ? "Pro: không giới hạn lượt tạo/cải tiến trong ngày." : "Pro: unlimited generate/improve requests per day.")
+    : (isVi
+      ? `Free: còn ${productQuota?.remaining ?? 5}/5 lượt tạo nội dung hôm nay (tính cả Cải tiến).`
+      : `Free: ${productQuota?.remaining ?? 5}/5 content generations left today (including Improve).`);
 
-  async function handleFeedbackSubmit() {
-    const trimmed = String(feedbackMessage || "").trim();
-    if (!trimmed) return;
+  function inferStylePresetFromForm(nextForm = form) {
+    const tone = Number(nextForm?.tone);
+    const brandStyle = Number(nextForm?.brandStyle);
+    const mood = Number(nextForm?.mood);
 
-    setFeedbackSending(true);
-    try {
-      await actions.submitFeedback({
-        type: feedbackType,
-        rating: feedbackRating,
-        message: trimmed
-      });
-      setFeedbackMessage("");
-      setFeedbackRating(0);
-      setFeedbackType("general");
-    } finally {
-      setFeedbackSending(false);
-    }
+    if (tone === 1 && brandStyle === 2 && mood === 3) return "expert";
+    if (tone === 2 && brandStyle === 1 && mood === 3) return "sales";
+    if (tone === 0 && brandStyle === 1 && mood === 1) return "lifestyle";
+    if (tone === 0 && brandStyle === 0 && mood === 0) return "balanced";
+    return "custom";
   }
+
+  function getStylePresetLabel(stylePreset = "balanced") {
+    const normalized = String(stylePreset || "balanced").trim().toLowerCase();
+    if (normalized === "expert") return isVi ? "Chuyên gia thuyết phục" : "Expert persuasive";
+    if (normalized === "sales") return isVi ? "Chốt sale mạnh" : "Hard close";
+    if (normalized === "lifestyle") return isVi ? "Lifestyle gần gũi" : "Warm lifestyle";
+    if (normalized === "balanced") return isVi ? "Cân bằng (gọn, an toàn)" : "Balanced (safe default)";
+    return isVi ? "Tùy chỉnh thủ công" : "Custom manual";
+  }
+
+  const activeVariant = result?.variants?.[selectedVariant] || result || null;
+  const activeStylePreset = String(activeVariant?.stylePreset || inferStylePresetFromForm(form)).toLowerCase();
+  const styleProfileLabel = (() => {
+    return getStylePresetLabel(activeStylePreset);
+  })();
 
   async function handleSaveEditedOutput(nextResult) {
     setSavingEditedOutput(true);
@@ -152,70 +161,30 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               suggestion={suggestion}
               suggestionPulseToken={suggestionPulseToken}
               advancedFieldGroup={advancedFieldGroup}
+              variantCount={variantCount}
+              variantStylePresets={variantStylePresets}
+              sessionPlan={isProPlan ? "pro" : "free"}
+              onVariantCountChange={actions.setVariantCount}
+              onVariantStylePresetChange={actions.setVariantStylePresetAt}
               onGenerate={() => actions.handleGenerate(false)}
               loading={loading}
               language={language}
             />
 
-            <NextGenerationControls
-              language={language}
-              brandPreset={brandPreset}
-              variantCount={variantCount}
-              onBrandPresetChange={actions.setBrandPreset}
-              onVariantCountChange={actions.setVariantCount}
-            />
+            <div className={`quota-note-card ${isPro ? "pro" : "free"}`}>
+              <strong>{isVi ? "Quota hôm nay" : "Today quota"}</strong>
+              <span>{quotaHintText}</span>
+              {!isPro ? <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
+            </div>
 
-            <section className="panel-section launch-feedback-box">
+            <section className="panel-section coming-soon-card">
               <div className="panel-head">
-                <h3 className="subsection-title">{isVi ? "Góp ý nhanh" : "Quick feedback"}</h3>
-                <span className="inline-note">{isVi ? "Giúp tụi mình fix nhanh trước launch" : "Helps us fix faster before launch"}</span>
+                <h3 className="subsection-title">{isVi ? "Tạo hàng loạt" : "Bulk generation"}</h3>
+                <span className="inline-note">Coming soon</span>
               </div>
-              <div className="form-grid">
-                <NextSelectField
-                  label={isVi ? "Loại góp ý" : "Feedback type"}
-                  value={feedbackType}
-                  options={[
-                    { value: "general", label: isVi ? "Tổng quan" : "General" },
-                    { value: "bug", label: isVi ? "Lỗi" : "Bug" },
-                    { value: "suggest", label: isVi ? "Đề xuất" : "Suggestion" }
-                  ]}
-                  onChange={setFeedbackType}
-                />
-                <NextSelectField
-                  label={isVi ? "Mức hài lòng" : "Satisfaction"}
-                  value={feedbackRating}
-                  options={[
-                    { value: 0, label: isVi ? "Chưa chấm" : "No rating" },
-                    { value: 1, label: "1" },
-                    { value: 2, label: "2" },
-                    { value: 3, label: "3" },
-                    { value: 4, label: "4" },
-                    { value: 5, label: "5" }
-                  ]}
-                  onChange={(value) => setFeedbackRating(Number(value) || 0)}
-                />
-              </div>
-              <NextTextareaField
-                label={isVi ? "Nội dung góp ý" : "Feedback message"}
-                value={feedbackMessage}
-                onChange={setFeedbackMessage}
-                placeholder={isVi ? "Ví dụ: upload ảnh ổn, nhưng gợi ý template còn lệch ở vài ngành..." : "Example: image upload works, but template suggestions still drift in a few categories..."}
-              />
-              <div className="user-actions">
-                <button
-                  type="button"
-                  className="ghost-button"
-                  disabled={feedbackSending || !String(feedbackMessage || "").trim()}
-                  onClick={handleFeedbackSubmit}
-                >
-                  {feedbackSending
-                    ? (isVi ? "Đang gửi..." : "Sending...")
-                    : (isVi ? "Gửi góp ý" : "Send feedback")}
-                </button>
-              </div>
+              <p className="field-helper">{isVi ? "Tính năng tạo nội dung hàng loạt theo CSV đang được nâng cấp. Sẽ mở lại sớm." : "CSV-based bulk generation is being upgraded and will be back soon."}</p>
             </section>
 
-            <NextBulkGeneratorPanel language={language} />
           </section>
 
           <section className="panel">
@@ -235,15 +204,21 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               onPickVariant={(index) => {
                 const next = result?.variants?.[index];
                 if (!next) return;
+                const nextHistoryId = next?.historyId || result?.historyId || null;
                 actions.setSelectedVariant(index);
+                actions.setActiveHistoryId(nextHistoryId);
                 actions.setResult({
                   ...next,
-                  historyId: result?.historyId || null,
-                  title: result?.title || next.title,
-                  variantLabel: result?.variantLabel || next.variantLabel,
-                  variants: result.variants,
+                  historyId: nextHistoryId,
+                  title: next?.title || result?.title || null,
+                  variantLabel: next?.variantStyleLabel || result?.variantLabel || null,
+                  variantGroupId: next?.variantGroupId || result?.variantGroupId || "",
+                  variants: result?.variants || [next],
                   selectedVariant: index
                 });
+              }}
+              profileMeta={{
+                profileLabel: styleProfileLabel
               }}
               language={language}
             />

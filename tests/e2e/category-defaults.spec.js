@@ -27,7 +27,7 @@ test.describe("Category Defaults", () => {
     const channelSelect = page.getByLabel("Kênh bán");
     await expect(channelSelect).toHaveValue("1");
 
-    const stylePresetSelect = page.getByLabel("Mục tiêu nội dung");
+    const stylePresetSelect = page.getByLabel("Phong cách nội dung");
     await expect(stylePresetSelect).toHaveValue("expert");
 
     await page.locator("details.advanced-style-details summary").click();

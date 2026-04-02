@@ -18,6 +18,8 @@ export default function NextUpgradePage() {
     processing,
     cancelling,
     message,
+    successPopupOpen,
+    successPopupMessage,
     cardForm,
     isPro,
     actions
@@ -28,6 +30,15 @@ export default function NextUpgradePage() {
   const subtitle = isVi
     ? "Mở toàn bộ giới hạn lưu trữ: lịch sử không giới hạn và yêu thích không giới hạn."
     : "Unlock all storage limits: unlimited history and unlimited favorites.";
+  const favoriteLimitText = planInfo?.limits?.unlimitedFavorites
+    ? (isVi ? "Không giới hạn" : "Unlimited")
+    : String(planInfo?.limits?.favoritesLimit ?? 5);
+  const historyLimitText = planInfo?.limits?.unlimitedHistory
+    ? (isVi ? "Không giới hạn" : "Unlimited")
+    : String(planInfo?.limits?.historyLimit ?? 5);
+  const monthlyDisplay = isVi ? "249.000đ" : "$10";
+  const firstMonthDisplay = isVi ? "129.000đ" : "$5";
+  const regularDisplay = isVi ? "249.000đ" : "$10";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -57,37 +68,77 @@ export default function NextUpgradePage() {
           onLanguageChange={setLanguage}
         />
 
-        <section className="content-card upgrade-page-card">
-          <div className="upgrade-grid">
-            <section className="upgrade-plan-card">
-              <div className="upgrade-badge">{isPro ? "PRO" : "FREE"}</div>
-              <h2 className="section-title">{isVi ? "Gói Seller Studio Pro" : "Seller Studio Pro plan"}</h2>
-              <p className="page-subtitle">
-                {isVi ? "299.000đ / tháng" : "299,000 VND / month"}
+        <section className="content-card upgrade-page-shell">
+          <section className="upgrade-hero-card">
+            <div className="upgrade-hero-main">
+              <div className={`upgrade-plan-pill ${isPro ? "pro" : "free"}`}>{isPro ? "PRO" : "FREE"}</div>
+              <h2 className="section-title upgrade-hero-title">{isVi ? "Gói Seller Studio Pro" : "Seller Studio Pro Plan"}</h2>
+              <p className="upgrade-hero-subtitle">
+                {isVi
+                  ? "Nâng cấp để mở mọi giới hạn lưu trữ, tập trung vận hành và theo dõi nội dung dài hạn."
+                  : "Upgrade to remove storage limits and run long-term content operations with confidence."}
               </p>
+              <div className="upgrade-hero-stats">
+                <div className="upgrade-stat-card">
+                  <span>{isVi ? "Giới hạn yêu thích" : "Favorites limit"}</span>
+                  <strong>{favoriteLimitText}</strong>
+                </div>
+                <div className="upgrade-stat-card">
+                  <span>{isVi ? "Giới hạn lịch sử" : "History limit"}</span>
+                  <strong>{historyLimitText}</strong>
+                </div>
+              </div>
+            </div>
 
+            <aside className="upgrade-price-card">
+              <span className="upgrade-price-label">{isVi ? "Giá gói Pro" : "Pro pricing"}</span>
+              <p className="upgrade-price-value">{firstMonthDisplay}</p>
+              <p className="upgrade-price-cycle">{isVi ? "tháng đầu tiên" : "first month"}</p>
+              <p className="upgrade-regular-price">{isVi ? "Từ tháng thứ 2: 249.000đ/tháng" : "From month 2: $10/month"}</p>
+              <div className="upgrade-discount-chip">
+                {isVi
+                  ? "Giá gốc 249.000đ, ưu đãi tháng đầu 50%"
+                  : "Regular price $10, first month 50% off"}
+              </div>
+              <div className="upgrade-provider-chip">
+                {isVi ? "Cổng thanh toán" : "Payment provider"}: {paymentProvider === "stripe" ? "Stripe" : (isVi ? "Nội bộ (mock)" : "Internal (mock)")}
+              </div>
+            </aside>
+          </section>
+
+          <div className="upgrade-card-grid">
+            <article className="upgrade-info-card">
+              <h3 className="subsection-title">{isVi ? "Những gì bạn nhận được" : "What you get"}</h3>
               <ul className="upgrade-feature-list">
+                <li>{isVi ? "Generate/cải tiến không giới hạn ở cả 2 trang" : "Unlimited generate/improve on both pages"}</li>
                 <li>{isVi ? "Lịch sử nội dung không giới hạn" : "Unlimited content history"}</li>
-                <li>{isVi ? "Yêu thích không giới hạn" : "Unlimited favorites"}</li>
-                <li>{isVi ? "Ưu tiên hỗ trợ từ team" : "Priority support from team"}</li>
+                <li>{isVi ? "Danh sách yêu thích không giới hạn" : "Unlimited favorites list"}</li>
+                <li>{isVi ? "Phù hợp vận hành team, đa chiến dịch" : "Built for team operations and multi-campaign workflows"}</li>
               </ul>
+            </article>
 
-              <div className="upgrade-limits-box">
-                <div>
-                  <strong>{isVi ? "Gói hiện tại:" : "Current plan:"}</strong>
-                  <span>{isPro ? (isVi ? " Pro" : " Pro") : (isVi ? " Free" : " Free")}</span>
+            <article className="upgrade-info-card">
+              <h3 className="subsection-title">{isVi ? "Trạng thái tài khoản" : "Account status"}</h3>
+              <div className="upgrade-limit-rows">
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Gói hiện tại" : "Current plan"}</span>
+                  <strong>{isPro ? "PRO" : "FREE"}</strong>
                 </div>
-                <div>
-                  <strong>{isVi ? "Giới hạn yêu thích:" : "Favorites limit:"}</strong>
-                  <span>
-                    {planInfo?.limits?.unlimitedFavorites ? (isVi ? " Không giới hạn" : " Unlimited") : ` ${planInfo?.limits?.favoritesLimit ?? 5}`}
-                  </span>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Yêu thích" : "Favorites"}</span>
+                  <strong>{favoriteLimitText}</strong>
                 </div>
-                <div>
-                  <strong>{isVi ? "Giới hạn lịch sử:" : "History limit:"}</strong>
-                  <span>
-                    {planInfo?.limits?.unlimitedHistory ? (isVi ? " Không giới hạn" : " Unlimited") : ` ${planInfo?.limits?.historyLimit ?? 5}`}
-                  </span>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Lịch sử" : "History"}</span>
+                  <strong>{historyLimitText}</strong>
+                </div>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Generate/ngày (Nội dung sản phẩm)" : "Daily generate (Product)"}</span>
+                  <strong>{isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5"}</strong>
+                </div>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Generate/ngày (Kịch bản video)" : "Daily generate (Video)"}</span>
+                  <strong>{isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5"}</strong>
                 </div>
               </div>
 
@@ -106,14 +157,14 @@ export default function NextUpgradePage() {
                   <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
               ) : null}
-            </section>
+            </article>
 
             <section className="upgrade-payment-card">
               <h3 className="subsection-title">{isVi ? "Thanh toán" : "Payment"}</h3>
               <p className="inline-note">
                 {paymentProvider === "stripe"
-                  ? (isVi ? "Stripe đã sẵn sàng ở backend. UI hiện tại vẫn dùng form nội bộ để demo luồng." : "Stripe is configured on backend. Current UI still uses internal form for flow demo.")
-                  : (isVi ? "Demo UI thanh toán nội bộ (mock)." : "Internal mock payment UI demo.")}
+                  ? (isVi ? "Stripe đã sẵn sàng ở backend. Bạn có thể thanh toán trực tiếp qua Stripe hoặc dùng form nội bộ để demo." : "Stripe is configured on backend. You can pay via Stripe or use internal form for demo flow.")
+                  : (isVi ? "Đang chạy giao diện thanh toán nội bộ (mock)." : "Using internal mock payment UI.")}
               </p>
 
               <div className="form-grid">
@@ -146,35 +197,60 @@ export default function NextUpgradePage() {
                 />
               </div>
 
-              <button
-                type="button"
-                className="primary-button"
-                disabled={processing || loadingPlan || isPro}
-                onClick={actions.submitUpgrade}
-              >
-                {isPro
-                  ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                  : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
-              </button>
-
-              {!isPro && paymentProvider === "stripe" ? (
+              <div className="upgrade-payment-actions">
                 <button
                   type="button"
-                  className="ghost-button"
-                  disabled={processing || loadingPlan}
-                  onClick={actions.startStripeCheckout}
+                  className="primary-button"
+                  disabled={processing || loadingPlan || isPro}
+                  onClick={actions.submitUpgrade}
                 >
-                  {processing
-                    ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
-                    : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")}
+                  {isPro
+                    ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                    : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
                 </button>
-              ) : null}
 
-              {message ? <div className="history-empty">{message}</div> : null}
+                {!isPro && paymentProvider === "stripe" ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    disabled={processing || loadingPlan}
+                    onClick={actions.startStripeCheckout}
+                  >
+                    {processing
+                      ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
+                      : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")}
+                  </button>
+                ) : null}
+              </div>
+
+              {message ? <div className="upgrade-feedback-banner">{message}</div> : null}
             </section>
+
+            <article className="upgrade-info-card upgrade-note-card">
+              <h3 className="subsection-title">{isVi ? "Ghi chú thanh toán" : "Billing notes"}</h3>
+              <ul className="upgrade-note-list">
+                <li>{isVi ? "Nâng cấp có hiệu lực ngay sau khi thanh toán thành công." : "Upgrade is activated right after successful payment."}</li>
+                <li>{isVi ? "Bạn có thể hủy gói Pro bất kỳ lúc nào tại trang này." : "You can cancel Pro anytime from this page."}</li>
+                <li>{isVi ? "Dữ liệu lịch sử và yêu thích vẫn được giữ nguyên khi đổi gói." : "History and favorites data remain intact when plan changes."}</li>
+              </ul>
+            </article>
           </div>
         </section>
       </section>
+
+      {successPopupOpen ? (
+        <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={isVi ? "Nâng cấp thành công" : "Upgrade success"}>
+          <div className="upgrade-success-modal">
+            <div className="upgrade-success-icon" aria-hidden="true">✓</div>
+            <h3>{isVi ? "Nâng cấp Pro thành công" : "Pro upgrade successful"}</h3>
+            <p>{successPopupMessage}</p>
+            <div className="upgrade-success-actions">
+              <a className="primary-button" href={routes.scriptProductInfo}>{isVi ? "Bắt đầu sử dụng Pro" : "Start using Pro"}</a>
+              <button type="button" className="ghost-button" onClick={actions.closeSuccessPopup}>{isVi ? "Đóng" : "Close"}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </NextPageFrame>
   );
 }
