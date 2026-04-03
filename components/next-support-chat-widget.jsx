@@ -83,6 +83,7 @@ export default function NextSupportChatWidget({
       title: isVi ? "Chat trực tiếp với admin" : "Live chat with admin",
       subtitle: isVi ? "Nhắn ngay trong web, admin phản hồi ở tab Trò chuyện" : "Chat in web, admin replies from Chat tab",
       loginRequired: isVi ? "Vui lòng đăng nhập để chat với admin." : "Please log in to chat with admin.",
+      loginCta: isVi ? "Đăng nhập ngay" : "Log in now",
       noMessage: isVi ? "Hãy nhập nội dung trước khi gửi." : "Please type a message before sending.",
       send: isVi ? "Gửi" : "Send",
       sending: isVi ? "Đang gửi..." : "Sending...",
@@ -343,6 +344,7 @@ export default function NextSupportChatWidget({
           {!isAuthenticated ? (
             <div className="support-chat-login-gate">
               <div className="history-empty error-state">{text.loginRequired}</div>
+              <a className="primary-button support-chat-login-button" href={routes.login}>{text.loginCta}</a>
             </div>
           ) : (
             <>
