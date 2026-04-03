@@ -20,6 +20,7 @@ export default function NextUpgradePage() {
     loadingPlan,
     processing,
     cancelling,
+    cancelConfirmOpen,
     message,
     successPopupOpen,
     successPopupMessage,
@@ -44,6 +45,16 @@ export default function NextUpgradePage() {
   const regularDisplay = isVi ? "249.000đ" : "$10";
   const usingStripe = selectedGateway === "stripe";
   const isStripeAvailable = paymentProvider === "stripe";
+  const planExpiresAtText = (() => {
+    const raw = session?.planExpiresAt || planInfo?.expiresAt || "";
+    if (!raw) return isVi ? "Chưa có" : "Not available";
+    const parsed = new Date(raw);
+    if (!Number.isFinite(parsed.getTime())) return raw;
+    return parsed.toLocaleDateString(isVi ? "vi-VN" : "en-US");
+  })();
+  const remainingDaysText = Number.isFinite(Number(planInfo?.remainingDays))
+    ? `${Math.max(0, Number(planInfo.remainingDays))} ${isVi ? "ngày" : "days"}`
+    : "--";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -149,6 +160,20 @@ export default function NextUpgradePage() {
                   <span>{isVi ? "Generate/ngày (Kịch bản video)" : "Daily generate (Video)"}</span>
                   <strong>{isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5"}</strong>
                 </div>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Hiệu lực gói Pro đến" : "Pro valid until"}</span>
+                  <strong>{isPro ? planExpiresAtText : (isVi ? "Không áp dụng" : "N/A")}</strong>
+                </div>
+                <div className="upgrade-limit-row">
+                  <span>{isVi ? "Thời gian còn lại" : "Remaining time"}</span>
+                  <strong>{isPro ? remainingDaysText : (isVi ? "Không áp dụng" : "N/A")}</strong>
+                </div>
+                {isPro && planInfo?.cancelAtPeriodEnd ? (
+                  <div className="upgrade-limit-row">
+                    <span>{isVi ? "Trạng thái hủy" : "Cancellation status"}</span>
+                    <strong>{isVi ? "Đã hủy, giữ Pro tới ngày hết hạn" : "Cancelled, Pro remains until expiry"}</strong>
+                  </div>
+                ) : null}
               </div>
 
               {isPro ? (
@@ -157,11 +182,13 @@ export default function NextUpgradePage() {
                     type="button"
                     className="ghost-button"
                     disabled={cancelling}
-                    onClick={actions.cancelProPlan}
+                    onClick={actions.requestCancelProPlan}
                   >
                     {cancelling
                       ? (isVi ? "Đang hủy..." : "Cancelling...")
-                      : (isVi ? "Hủy gói Pro" : "Cancel Pro plan")}
+                      : (planInfo?.cancelAtPeriodEnd
+                        ? (isVi ? "Đã đặt hủy gói" : "Cancellation scheduled")
+                        : (isVi ? "Hủy gói Pro" : "Cancel Pro plan"))}
                   </button>
                   <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
@@ -285,13 +312,41 @@ export default function NextUpgradePage() {
               <h3 className="subsection-title">{isVi ? "Ghi chú thanh toán" : "Billing notes"}</h3>
               <ul className="upgrade-note-list">
                 <li>{isVi ? "Nâng cấp có hiệu lực ngay sau khi thanh toán thành công." : "Upgrade is activated right after successful payment."}</li>
-                <li>{isVi ? "Bạn có thể hủy gói Pro bất kỳ lúc nào tại trang này." : "You can cancel Pro anytime from this page."}</li>
+                <li>{isVi ? "Khi hủy gói, bạn vẫn dùng Pro tới hết chu kỳ đã thanh toán." : "When cancelled, Pro access remains until the paid cycle ends."}</li>
+                <li>{isVi ? "Nếu đăng ký lại trước khi hết hạn, hệ thống sẽ cộng dồn thêm thời gian gói mới." : "If you resubscribe before expiry, new time is added on top of remaining Pro time."}</li>
                 <li>{isVi ? "Dữ liệu lịch sử và yêu thích vẫn được giữ nguyên khi đổi gói." : "History and favorites data remain intact when plan changes."}</li>
               </ul>
             </article>
           </div>
         </section>
       </section>
+
+      {cancelConfirmOpen && typeof document !== "undefined" ? createPortal(
+        <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={isVi ? "Xác nhận hủy gói Pro" : "Confirm Pro cancellation"} onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            actions.closeCancelConfirm();
+          }
+        }}>
+          <div className="upgrade-success-modal">
+            <div className="upgrade-success-icon" aria-hidden="true">!</div>
+            <h3>{isVi ? "Xác nhận hủy gói Pro" : "Confirm Pro cancellation"}</h3>
+            <p>
+              {isVi
+                ? `Bạn vẫn được dùng đầy đủ Pro đến hết ngày ${planExpiresAtText}. Sau thời điểm này, tài khoản sẽ về Free.`
+                : `Your Pro access remains active until ${planExpiresAtText}. After that, your account switches back to Free.`}
+            </p>
+            <div className="upgrade-success-actions">
+              <button type="button" className="primary-button" onClick={actions.confirmCancelProPlan}>
+                {isVi ? "Xác nhận hủy" : "Confirm cancellation"}
+              </button>
+              <button type="button" className="ghost-button" onClick={actions.closeCancelConfirm}>
+                {isVi ? "Giữ gói Pro" : "Keep Pro"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
 
       {successPopupOpen && typeof document !== "undefined" ? createPortal(
         <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={isVi ? "Nâng cấp thành công" : "Upgrade success"}>

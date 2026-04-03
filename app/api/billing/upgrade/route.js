@@ -31,7 +31,7 @@ export async function POST(request) {
     const planInfo = await upgradeUserToProAsync(user.id, {
       provider: "mock",
       transactionRef,
-      amount: 299000,
+      amount: 129000,
       currency: "VND",
       cardLast4: sanitizeCardLast4(cardNumber)
     });
@@ -48,7 +48,7 @@ export async function POST(request) {
       planInfo,
       receipt: {
         transactionRef,
-        amount: 299000,
+        amount: 129000,
         currency: "VND",
         cardLast4: sanitizeCardLast4(cardNumber)
       }

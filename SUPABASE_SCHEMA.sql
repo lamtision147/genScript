@@ -90,6 +90,9 @@ create table if not exists public.billing_subscriptions (
   amount numeric(12,2) not null default 0,
   currency text not null default 'VND',
   upgraded_at timestamptz,
+  expires_at timestamptz,
+  cancel_at_period_end boolean not null default false,
+  cancelled_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(user_id)

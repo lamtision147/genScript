@@ -54,6 +54,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [successPopupOpen, setSuccessPopupOpen] = useState(false);
   const [successPopupMessage, setSuccessPopupMessage] = useState("");
@@ -96,6 +97,17 @@ export function useUpgradeWorkspace(language = "vi") {
       setSelectedGateway("internal");
     }
   }, [paymentProvider, selectedGateway]);
+
+  useEffect(() => {
+    if (!cancelConfirmOpen) return undefined;
+    const onEsc = (event) => {
+      if (event.key === "Escape") {
+        setCancelConfirmOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [cancelConfirmOpen]);
 
   async function submitUpgrade() {
     const validationError = validateCardForm(cardForm, language);
@@ -186,6 +198,19 @@ export function useUpgradeWorkspace(language = "vi") {
     }
   }
 
+  function requestCancelProPlan() {
+    setCancelConfirmOpen(true);
+  }
+
+  function closeCancelConfirm() {
+    setCancelConfirmOpen(false);
+  }
+
+  async function confirmCancelProPlan() {
+    await cancelProPlan();
+    setCancelConfirmOpen(false);
+  }
+
   function updateCardField(key, value) {
     setCardForm((prev) => {
       if (key === "cardNumber") {
@@ -209,6 +234,7 @@ export function useUpgradeWorkspace(language = "vi") {
     loadingPlan,
     processing,
     cancelling,
+    cancelConfirmOpen,
     message,
     successPopupOpen,
     successPopupMessage,
@@ -220,6 +246,9 @@ export function useUpgradeWorkspace(language = "vi") {
       startStripeCheckout,
       confirmStripeCheckout,
       cancelProPlan,
+      requestCancelProPlan,
+      closeCancelConfirm,
+      confirmCancelProPlan,
       updateCardField,
       setPaymentGateway: (value) => {
         const next = normalizeGateway(value);

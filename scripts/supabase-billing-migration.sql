@@ -11,10 +11,25 @@ create table if not exists public.billing_subscriptions (
   amount numeric(12,2) not null default 0,
   currency text not null default 'VND',
   upgraded_at timestamptz,
+  expires_at timestamptz,
+  cancel_at_period_end boolean not null default false,
+  cancelled_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(user_id)
 );
+
+alter table public.billing_subscriptions add column if not exists expires_at timestamptz;
+alter table public.billing_subscriptions add column if not exists cancel_at_period_end boolean not null default false;
+alter table public.billing_subscriptions add column if not exists cancelled_at timestamptz;
+
+update public.billing_subscriptions
+set expires_at = coalesce(expires_at, now() + interval '30 day')
+where plan = 'pro' and status = 'active' and expires_at is null;
+
+update public.billing_subscriptions
+set expires_at = null
+where plan = 'free';
 
 create index if not exists idx_billing_subscriptions_plan on public.billing_subscriptions(plan);
 create index if not exists idx_billing_subscriptions_status on public.billing_subscriptions(status);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
-import { ensurePlanInfoForUserAsync, getPaymentProviderStatus } from "@/lib/server/billing-service";
+import { ensurePlanInfoForUserAsync, getPaymentProviderStatus, markExpiredSubscriptionsToFreeAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
 export async function GET(request) {
@@ -11,6 +11,7 @@ export async function GET(request) {
       return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), ctx);
     }
 
+    await markExpiredSubscriptionsToFreeAsync();
     const planInfo = await ensurePlanInfoForUserAsync(user);
     const payment = getPaymentProviderStatus();
     logInfo(ctx, "billing.plan.get", {

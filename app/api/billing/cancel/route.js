@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
-import { downgradeUserToFreeAsync } from "@/lib/server/billing-service";
+import { downgradeUserToFreeAsync, ensurePlanInfoForUserAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
 export async function POST(request) {
@@ -11,9 +11,13 @@ export async function POST(request) {
       return withRequestId(NextResponse.json({ error: "Unauthorized" }, { status: 401 }), ctx);
     }
 
+    const currentPlan = await ensurePlanInfoForUserAsync(user);
     const planInfo = await downgradeUserToFreeAsync(user.id, {
       provider: "manual",
-      transactionRef: `cancel_${Date.now()}`
+      transactionRef: `cancel_${Date.now()}`,
+      amount: Number(currentPlan?.amount || 0),
+      upgradedAt: currentPlan?.upgradedAt || null,
+      expiresAt: currentPlan?.expiresAt || null
     });
 
     logInfo(ctx, "billing.cancel.success", {

@@ -30,6 +30,16 @@ export default function NextProfilePage() {
   const favoriteLimitText = isPro
     ? (language === "vi" ? "Không giới hạn" : "Unlimited")
     : `${session?.planLimits?.favoritesLimit ?? 5}`;
+  const planExpiresAtText = (() => {
+    const raw = session?.planExpiresAt || "";
+    if (!raw) return language === "vi" ? "Chưa có" : "Not available";
+    const parsed = new Date(raw);
+    if (!Number.isFinite(parsed.getTime())) return raw;
+    return parsed.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US");
+  })();
+  const remainingPlanDays = Number.isFinite(Number(session?.remainingPlanDays))
+    ? Math.max(0, Number(session.remainingPlanDays))
+    : null;
 
   function handleOpenFavorite(item) {
     const contentType = String(item?.form?.contentType || "").toLowerCase();
@@ -75,6 +85,23 @@ export default function NextProfilePage() {
               <span>·</span>
               <strong>{language === "vi" ? "Giới hạn yêu thích:" : "Favorites limit:"}</strong>
               <span>{` ${favoriteLimitText}`}</span>
+              <span>·</span>
+              <strong>{language === "vi" ? "Hiệu lực đến:" : "Valid until:"}</strong>
+              <span>{` ${isPro ? planExpiresAtText : (language === "vi" ? "Không áp dụng" : "N/A")}`}</span>
+              {isPro ? (
+                <>
+                  <span>·</span>
+                  <strong>{language === "vi" ? "Còn lại:" : "Remaining:"}</strong>
+                  <span>{` ${remainingPlanDays !== null ? `${remainingPlanDays} ${language === "vi" ? "ngày" : "days"}` : "--"}`}</span>
+                </>
+              ) : null}
+              {isPro && session?.cancelAtPeriodEnd ? (
+                <>
+                  <span>·</span>
+                  <strong>{language === "vi" ? "Trạng thái:" : "Status:"}</strong>
+                  <span>{language === "vi" ? "Đã hủy, giữ Pro tới hết hạn" : "Cancelled, Pro active until expiry"}</span>
+                </>
+              ) : null}
               {!isPro ? <a className="ghost-button" href={routes.upgrade}>{language === "vi" ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
             </div>
           ) : null}
