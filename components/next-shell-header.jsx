@@ -47,8 +47,8 @@ export default function NextShellHeader({
         {/* CENTER — nav links */}
         <nav className="header-topbar-nav">
           <div className="user-actions">
-            <Link className={`ghost-button nav-link ${isScriptPage ? "active" : ""}`} href={routes.scriptProductInfo}>{copy.common.studio}</Link>
             <Link className={`ghost-button nav-link ${isScriptVideoPage ? "active" : ""}`} href={routes.scriptVideoReview}>{copy.common.videoScript}</Link>
+            <Link className={`ghost-button nav-link ${isScriptPage ? "active" : ""}`} href={routes.scriptProductInfo}>{copy.common.studio}</Link>
           </div>
         </nav>
 
