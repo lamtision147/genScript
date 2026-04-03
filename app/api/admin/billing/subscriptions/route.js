@@ -14,6 +14,11 @@ function normalizeQuery(value = "") {
   return String(value || "").trim().toLowerCase();
 }
 
+function isMissingColumnError(error) {
+  const message = String(error?.message || "");
+  return /column.+does not exist|schema cache|failed to parse select parameter/i.test(message);
+}
+
 function applyQuery(items, query = "") {
   const q = normalizeQuery(query);
   if (!q) return items;
@@ -47,16 +52,30 @@ async function listSupabaseSubscriptions() {
   const supabase = createServerSupabaseClient();
   if (!supabase) return null;
 
+  async function loadSubscriptions() {
+    let result = await supabase
+      .from("billing_subscriptions")
+      .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,expires_at,cancel_at_period_end,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1000);
+
+    if (result.error && isMissingColumnError(result.error)) {
+      result = await supabase
+        .from("billing_subscriptions")
+        .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1000);
+    }
+
+    return result;
+  }
+
   const [{ data: usersData, error: usersError }, { data: subsData, error: subsError }] = await Promise.all([
     supabase
       .from("users")
       .select("id,email,name")
       .limit(1000),
-    supabase
-      .from("billing_subscriptions")
-      .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(1000)
+    loadSubscriptions()
   ]);
 
   if (usersError) {
@@ -84,6 +103,8 @@ async function listSupabaseSubscriptions() {
       amount: Number(sub?.amount || 0),
       currency: String(sub?.currency || "VND").toUpperCase(),
       upgradedAt: sub?.upgraded_at || null,
+      expiresAt: sub?.expires_at || null,
+      cancelAtPeriodEnd: Boolean(sub?.cancel_at_period_end),
       updatedAt: sub?.updated_at || null
     };
   });
@@ -102,6 +123,8 @@ async function listSupabaseSubscriptions() {
       amount: Number(sub?.amount || 0),
       currency: String(sub?.currency || "VND").toUpperCase(),
       upgradedAt: sub?.upgraded_at || null,
+      expiresAt: sub?.expires_at || null,
+      cancelAtPeriodEnd: Boolean(sub?.cancel_at_period_end),
       updatedAt: sub?.updated_at || null
     });
   }
@@ -127,6 +150,8 @@ function listLocalSubscriptions() {
       amount: Number(sub?.amount || 0),
       currency: String(sub?.currency || "VND").toUpperCase(),
       upgradedAt: sub?.upgradedAt || null,
+      expiresAt: sub?.expiresAt || null,
+      cancelAtPeriodEnd: Boolean(sub?.cancelAtPeriodEnd),
       updatedAt: sub?.updatedAt || null
     };
   });
@@ -145,6 +170,8 @@ function listLocalSubscriptions() {
       amount: Number(sub?.amount || 0),
       currency: String(sub?.currency || "VND").toUpperCase(),
       upgradedAt: sub?.upgradedAt || null,
+      expiresAt: sub?.expiresAt || null,
+      cancelAtPeriodEnd: Boolean(sub?.cancelAtPeriodEnd),
       updatedAt: sub?.updatedAt || null
     });
   }

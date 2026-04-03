@@ -19,6 +19,14 @@ export default function NextAdminBillingPanel({
   const canPrev = Number(page || 1) > 1;
   const canNext = Number(page || 1) < Number(meta?.totalPages || 1);
 
+  function formatDateTime(value, fallback = "-") {
+    const raw = String(value || "").trim();
+    if (!raw) return fallback;
+    const parsed = new Date(raw);
+    if (!Number.isFinite(parsed.getTime())) return raw;
+    return parsed.toLocaleString(isVi ? "vi-VN" : "en-US");
+  }
+
   return (
     <section className="admin-users-panel">
       <div className="panel-head">
@@ -49,6 +57,7 @@ export default function NextAdminBillingPanel({
                 <th>{isVi ? "Provider" : "Provider"}</th>
                 <th>{isVi ? "Amount" : "Amount"}</th>
                 <th>{isVi ? "Ngày nâng cấp" : "Upgraded at"}</th>
+                <th>{isVi ? "Hết hạn Pro" : "Pro expires"}</th>
                 <th>{isVi ? "Thao tác" : "Actions"}</th>
               </tr>
             </thead>
@@ -56,6 +65,9 @@ export default function NextAdminBillingPanel({
               {list.map((row) => {
                 const busy = changing.userId === row.userId;
                 const isPro = String(row.plan || "free") === "pro";
+                const proExpiryText = isPro
+                  ? formatDateTime(row.expiresAt, isVi ? "Chưa có hạn" : "Not set")
+                  : "-";
                 return (
                   <tr key={`${row.userId}_${row.plan}_${row.updatedAt || ""}`}>
                     <td>{row.email || "-"}</td>
@@ -63,7 +75,13 @@ export default function NextAdminBillingPanel({
                     <td>{isPro ? "PRO" : "FREE"}</td>
                     <td>{row.provider || "-"}</td>
                     <td>{`${Number(row.amount || 0).toLocaleString()} ${row.currency || "VND"}`}</td>
-                    <td>{row.upgradedAt ? new Date(row.upgradedAt).toLocaleString() : "-"}</td>
+                    <td>{formatDateTime(row.upgradedAt, "-")}</td>
+                    <td>
+                      {proExpiryText}
+                      {isPro && row.cancelAtPeriodEnd ? (
+                        <div className="inline-note">{isVi ? "(Đã hủy, giữ Pro tới ngày này)" : "(Cancelled, keeps Pro until this date)"}</div>
+                      ) : null}
+                    </td>
                     <td>
                       {isPro ? (
                         <button
