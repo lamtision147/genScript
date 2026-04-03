@@ -497,7 +497,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             />
 
             <NextTextareaField
-              label={isVi ? "Nỗi đau chính của người xem" : "Core viewer pain point"}
+              label={isVi ? "Đặt vấn đề chính" : "Core audience problem"}
               value={form.painPoint}
               onChange={(value) => actions.setField("painPoint", value)}
               placeholder={isVi ? "Người xem đang bực ở điểm nào khiến họ muốn tìm giải pháp?" : "What pain point makes viewers search for a solution right now?"}

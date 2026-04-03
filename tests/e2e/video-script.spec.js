@@ -57,7 +57,7 @@ test.describe("Video Script Page", () => {
     await page.getByLabel("Template ngành hàng").selectOption({ index: 0 });
     await page.getByLabel("Tên sản phẩm").fill("Máy xay mini cầm tay");
     await page.getByRole("button", { name: "Áp dụng template ngành" }).click();
-    await page.getByLabel("Nỗi đau chính của người xem").fill("Xay đồ ăn dặm mất thời gian, rửa máy cồng kềnh");
+    await page.getByLabel("Đặt vấn đề chính").fill("Xay đồ ăn dặm mất thời gian, rửa máy cồng kềnh");
     await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Nhỏ gọn\nXay nhanh\nDễ vệ sinh");
     await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 7 ngày, mỗi lần xay chỉ mất khoảng 30 giây");
     await page.getByLabel("Mốc thời lượng").selectOption("45");
@@ -174,7 +174,7 @@ test.describe("Video Script Page", () => {
     await page.getByLabel("Phong cách nội dung bản 2").selectOption("0");
 
     await page.getByLabel("Tên sản phẩm").fill("Mic mini review");
-    await page.getByLabel("Nỗi đau chính của người xem").fill("Ghi âm dở khi quay ngoài trời");
+    await page.getByLabel("Đặt vấn đề chính").fill("Ghi âm dở khi quay ngoài trời");
     await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Lọc ồn tốt\nNhỏ gọn\nKết nối nhanh");
     await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
 
@@ -356,7 +356,7 @@ test.describe("Video Script Page", () => {
     await ensureLanguage(page, "vi");
 
     await page.getByLabel("Tên sản phẩm").fill("Áo thun nam basic");
-    await page.getByLabel("Nỗi đau chính của người xem").fill("Muốn áo mặc mát, form gọn");
+    await page.getByLabel("Đặt vấn đề chính").fill("Muốn áo mặc mát, form gọn");
     await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Mềm\nThoáng\nDễ phối");
     await page.getByLabel("Template ngành hàng").selectOption("fashion-men-basic");
 
@@ -386,7 +386,7 @@ test.describe("Video Script Page", () => {
     await dropInput.setInputFiles([makePngPayload("weak-signal-video.png")]);
 
     await expect(page.getByLabel("Template ngành hàng")).toHaveValue("fashion-men-basic");
-    await expect(page.getByLabel("Nỗi đau chính của người xem")).toHaveValue("Muốn áo mặc mát, form gọn");
+    await expect(page.getByLabel("Đặt vấn đề chính")).toHaveValue("Muốn áo mặc mát, form gọn");
     await expect(page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)")).toHaveValue(/Mềm\nThoáng\nDễ phối/);
     await expect(page.getByText("Ảnh chưa đủ tín hiệu mạnh")).toBeVisible();
   });
