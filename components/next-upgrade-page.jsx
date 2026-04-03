@@ -61,16 +61,16 @@ export default function NextUpgradePage() {
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const proPerks = isVi
     ? [
-      "Generate/cải tiến không giới hạn ở cả 2 trang",
-      "Tạo nhiều phiên bản nội dung để A/B test nhanh",
-      "Lịch sử và danh sách yêu thích không giới hạn",
-      "Tối ưu quy trình vận hành đa sản phẩm, đa chiến dịch"
+      "Không giới hạn lượt tạo/cải tiến",
+      "Tạo nhiều bản kịch bản cho cùng 1 brief",
+      "So sánh theo tab, chốt nhanh bản tốt nhất",
+      "Lưu trữ lịch sử nội dung không giới hạn"
     ]
     : [
-      "Unlimited generate/improve on both pages",
-      "Create multiple variants for faster A/B testing",
-      "Unlimited history and favorites",
-      "Better workflow for multi-product, multi-campaign operations"
+      "Unlimited generate/improve",
+      "Create multiple script versions for one brief",
+      "Compare by tabs and lock the best version faster",
+      "Unlimited content history storage"
     ];
 
   useEffect(() => {
@@ -163,10 +163,7 @@ export default function NextUpgradePage() {
             <article className="upgrade-info-card">
               <h3 className="subsection-title">{isVi ? "Những gì bạn nhận được" : "What you get"}</h3>
               <ul className="upgrade-feature-list">
-                <li>{isVi ? "Generate/cải tiến không giới hạn ở cả 2 trang" : "Unlimited generate/improve on both pages"}</li>
-                <li>{isVi ? "Tạo nhiều phiên bản nội dung để A/B test nhanh" : "Generate multiple variants for fast A/B testing"}</li>
-                <li>{isVi ? "Lịch sử và yêu thích không giới hạn để tái sử dụng nội dung tốt" : "Unlimited history and favorites to reuse winning content"}</li>
-                <li>{isVi ? "Phù hợp vận hành team và đa chiến dịch bán hàng" : "Built for team workflows and multi-campaign selling"}</li>
+                {proPerks.map((perk) => <li key={perk}>{perk}</li>)}
               </ul>
             </article>
 
