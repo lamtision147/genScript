@@ -28,6 +28,7 @@
   --mono: "JetBrains Mono", "Noto Sans Mono", "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
   --serif: var(--font-serif), "Noto Serif", "Source Serif 4", Georgia, serif;
   --sans: var(--font-sans), "Be Vietnam Pro", "Noto Sans", "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
 }
 
 html[data-theme="dark"] {
@@ -48,6 +49,7 @@ html[data-theme="dark"] {
   --shadow: 0 22px 58px rgba(0, 0, 0, 0.48);
   --shadow-soft: 0 14px 28px rgba(0, 0, 0, 0.38);
   --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
 }
 
 * {
@@ -1834,6 +1836,23 @@ html[data-theme="dark"] .field textarea::placeholder {
 html[data-theme="dark"] .dropdown-select {
   background: linear-gradient(180deg, rgba(50, 38, 45, 0.94), rgba(34, 27, 33, 0.95));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .field select,
+html[data-theme="dark"] .dropdown-select,
+html[data-theme="dark"] .image-editor select,
+html[data-theme="dark"] .admin-page-size select,
+html[data-theme="dark"] .admin-chat-thread-status select,
+html[data-theme="dark"] select {
+  color: #f7e5ea !important;
+  background-color: #322733 !important;
+  border-color: rgba(255, 178, 196, 0.2) !important;
+}
+
+html[data-theme="dark"] select option,
+html[data-theme="dark"] select optgroup {
+  color: #f7e5ea;
+  background-color: #2b222d;
 }
 
 html[data-theme="dark"] .select-wrap::after {
