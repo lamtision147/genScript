@@ -182,7 +182,7 @@ html[data-theme="dark"] .header::before {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   padding: 10px 18px;
@@ -194,6 +194,7 @@ html[data-theme="dark"] .header::before {
   align-items: center;
   gap: 9px;
   min-width: 0;
+  justify-self: start;
 }
 
 .header-topbar-nav {
@@ -201,6 +202,7 @@ html[data-theme="dark"] .header::before {
   justify-content: center;
   align-items: center;
   min-width: 0;
+  justify-self: center;
 }
 
 .header-topbar-right {
@@ -209,6 +211,7 @@ html[data-theme="dark"] .header::before {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  justify-self: end;
 }
 
 .header-utility-nav {
