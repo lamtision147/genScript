@@ -669,7 +669,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       .then((res) => res.json())
       .then((data) => {
         setSession(data?.user || null);
-        setGenerateQuota(data?.user?.generateQuota || null);
+        setGenerateQuota(data?.user?.generateQuota || data?.guestQuota || null);
       })
       .catch(() => {});
   }, [setSession]);
@@ -1171,7 +1171,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         .then((res) => res.json())
         .then((data) => {
           setSession(data?.user || null);
-          setGenerateQuota(data?.user?.generateQuota || null);
+          setGenerateQuota(data?.user?.generateQuota || data?.guestQuota || null);
         })
         .catch(() => {});
       trackEvent("generate.video-script.failed", {

@@ -22,20 +22,19 @@ export async function POST(request) {
       payload.variantCount = 1;
     }
 
-    if (user?.id) {
-      const quota = await consumeGenerationQuotaAsync({
-        userId: user.id,
-        scope: "product_copy"
-      });
+    const quota = await consumeGenerationQuotaAsync({
+      userId: user?.id || "",
+      scope: "product_copy",
+      request
+    });
 
-      if (!quota.allowed) {
-        const errorMessage = buildQuotaExceededMessage("product_copy", payload.lang);
-        return withRequestId(NextResponse.json({
-          error: errorMessage,
-          code: "FREE_DAILY_QUOTA_EXCEEDED",
-          quota
-        }, { status: 429 }), ctx);
-      }
+    if (!quota.allowed) {
+      const errorMessage = buildQuotaExceededMessage("product_copy", payload.lang, quota);
+      return withRequestId(NextResponse.json({
+        error: errorMessage,
+        code: "FREE_DAILY_QUOTA_EXCEEDED",
+        quota
+      }, { status: 429 }), ctx);
     }
 
     const generated = await generateProductCopyVariants(payload);

@@ -296,7 +296,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
     ]);
     setSession(sessionRes.user || null);
-    setGenerateQuota(sessionRes?.user?.generateQuota || null);
+    setGenerateQuota(sessionRes?.user?.generateQuota || sessionRes?.guestQuota || null);
     setHistory(historyRes.items || []);
     setFavorites(favoritesRes?.items || []);
   }

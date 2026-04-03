@@ -22,20 +22,19 @@ export async function POST(request) {
       body.variantCount = 1;
     }
 
-    if (user?.id) {
-      const quota = await consumeGenerationQuotaAsync({
-        userId: user.id,
-        scope: "video_script"
-      });
+    const quota = await consumeGenerationQuotaAsync({
+      userId: user?.id || "",
+      scope: "video_script",
+      request
+    });
 
-      if (!quota.allowed) {
-        const errorMessage = buildQuotaExceededMessage("video_script", body?.lang || "vi");
-        return withRequestId(NextResponse.json({
-          error: errorMessage,
-          code: "FREE_DAILY_QUOTA_EXCEEDED",
-          quota
-        }, { status: 429 }), ctx);
-      }
+    if (!quota.allowed) {
+      const errorMessage = buildQuotaExceededMessage("video_script", body?.lang || "vi", quota);
+      return withRequestId(NextResponse.json({
+        error: errorMessage,
+        code: "FREE_DAILY_QUOTA_EXCEEDED",
+        quota
+      }, { status: 429 }), ctx);
     }
 
     const generated = await generateVideoReviewScript(body);

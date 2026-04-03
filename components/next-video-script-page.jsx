@@ -127,8 +127,13 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const outputData = buildResultAsProductLike(result);
   const videoQuota = generateQuota?.videoScript || null;
   const isPro = Boolean(generateQuota?.isPro || session?.plan === "pro" || isProPlan);
+  const isGuestQuota = Boolean(generateQuota?.isGuest && !session);
   const quotaHintText = isPro
     ? (isVi ? "Pro: không giới hạn lượt tạo/cải tiến kịch bản trong ngày." : "Pro: unlimited video generate/improve requests per day.")
+    : isGuestQuota
+      ? (isVi
+        ? `Khách: còn ${videoQuota?.remaining ?? 2}/2 lượt tạo kịch bản hôm nay (tính cả Cải tiến). Đăng nhập để nhận 5 lượt/ngày.`
+        : `Guest: ${videoQuota?.remaining ?? 2}/2 video generations left today (including Improve). Log in to get 5/day.`)
     : (isVi
       ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay (tính cả Cải tiến).`
       : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today (including Improve).`);
@@ -582,7 +587,12 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             <div className={`quota-note-card ${isPro ? "pro" : "free"}`}>
               <strong>{isVi ? "Quota hôm nay" : "Today quota"}</strong>
               <span>{quotaHintText}</span>
-              {!isPro ? <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
+              {!isPro ? (
+                <div className="user-actions">
+                  {isGuestQuota ? <a className="ghost-button" href={routes.login}>{isVi ? "Đăng nhập" : "Log in"}</a> : null}
+                  <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>
+                </div>
+              ) : null}
             </div>
             </fieldset>
           </section>
