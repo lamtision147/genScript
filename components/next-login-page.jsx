@@ -17,7 +17,7 @@ export default function NextLoginPage() {
     <NextPageFrame>
       <section className="panel full-span">
         <NextShellHeader
-          eyebrow="Seller Studio"
+          eyebrow="SellerScript AI"
           title={copy.auth.login}
           subtitle=""
           user={session}
@@ -26,7 +26,7 @@ export default function NextLoginPage() {
         />
         <section className="login-shell">
           <div className="login-hero">
-            <span className="brand-eyebrow">Seller Studio</span>
+            <span className="brand-eyebrow">SellerScript AI</span>
             <h2 className="page-title login-title">{copy.auth.login}</h2>
             <p className="page-subtitle">{copy.auth.loginSubtitle}</p>
           </div>

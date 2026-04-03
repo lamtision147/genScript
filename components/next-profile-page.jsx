@@ -54,7 +54,7 @@ export default function NextProfilePage() {
     <NextPageFrame>
       <section className="panel full-span">
         <NextShellHeader
-          eyebrow="Seller Studio"
+          eyebrow="SellerScript AI"
           title={profileTitleText}
           subtitle=""
           user={session}

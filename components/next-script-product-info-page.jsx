@@ -111,7 +111,7 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   return (
     <NextPageFrame>
         <NextShellHeader
-          eyebrow={copy.script.eyebrow || "Seller Studio"}
+          eyebrow={copy.script.eyebrow || "SellerScript AI"}
           title={copy.script.title}
           subtitle={copy.script.subtitle || ""}
           user={session}

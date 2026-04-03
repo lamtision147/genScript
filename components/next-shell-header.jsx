@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { routes } from "@/lib/routes";
 import { LANGUAGE_OPTIONS, getCopy } from "@/lib/i18n";
 
 export default function NextShellHeader({
-  eyebrow = "Seller Studio",
+  eyebrow = "SellerScript AI",
   title,
   subtitle,
   user,
@@ -38,7 +39,9 @@ export default function NextShellHeader({
       <div className="header-topbar">
         {/* LEFT — brand */}
         <div className="header-topbar-brand">
-          <div className="brand-mark"><span className="brand-mark-core" /><span className="brand-mark-core brand-mark-core-alt" /></div>
+          <div className="brand-mark" aria-hidden="true">
+            <Image src="/brand-logo.svg" alt="" width={32} height={32} priority />
+          </div>
           <div className="brand-headline">
             <span className="brand-signature">{eyebrow}</span>
           </div>
