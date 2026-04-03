@@ -3428,12 +3428,13 @@ html[data-theme="dark"] .quota-note-card.pro {
 .quota-note-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .quota-note-text {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
