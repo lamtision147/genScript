@@ -2500,9 +2500,10 @@ a:focus-visible {
 .upgrade-success-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1200;
-  background: rgba(19, 11, 4, 0.46);
-  backdrop-filter: blur(3px);
+  z-index: 9999;
+  background: rgba(19, 11, 4, 0.52);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
   display: flex;
   align-items: center;
   justify-content: center;

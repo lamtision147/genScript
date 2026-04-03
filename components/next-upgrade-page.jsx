@@ -7,6 +7,7 @@ import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useUpgradeWorkspace } from "@/hooks/use-upgrade-workspace";
 import { routes } from "@/lib/routes";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function NextUpgradePage() {
   const { language, setLanguage } = useUiLanguage("vi");
@@ -238,7 +239,7 @@ export default function NextUpgradePage() {
         </section>
       </section>
 
-      {successPopupOpen ? (
+      {successPopupOpen && typeof document !== "undefined" ? createPortal(
         <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={isVi ? "Nâng cấp thành công" : "Upgrade success"}>
           <div className="upgrade-success-modal">
             <div className="upgrade-success-icon" aria-hidden="true">✓</div>
@@ -249,7 +250,8 @@ export default function NextUpgradePage() {
               <button type="button" className="ghost-button" onClick={actions.closeSuccessPopup}>{isVi ? "Đóng" : "Close"}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </NextPageFrame>
   );
