@@ -4119,9 +4119,12 @@ html[data-theme="dark"] .login-feature-card {
 
 .login-google {
   width: 100%;
-  min-height: 52px;
+  min-height: 44px;
+  padding: 9px 16px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   border-radius: 14px;
   border: 1px solid rgba(95, 64, 36, 0.22);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 241, 233, 0.98));
@@ -4140,9 +4143,9 @@ html[data-theme="dark"] .login-feature-card {
 }
 
 .login-google-icon {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -4153,14 +4156,15 @@ html[data-theme="dark"] .login-feature-card {
 }
 
 .login-google-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: block;
 }
 
 .login-google-label {
   font-weight: 600;
   letter-spacing: 0;
+  line-height: 1.2;
 }
 
 html[data-theme="dark"] .login-google {
