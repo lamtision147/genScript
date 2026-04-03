@@ -29,8 +29,8 @@ export default function NextUpgradePage() {
   const isVi = language === "vi";
   const title = isVi ? "Nâng cấp gói Pro" : "Upgrade to Pro";
   const subtitle = isVi
-    ? "Mở toàn bộ giới hạn lưu trữ: lịch sử không giới hạn và yêu thích không giới hạn."
-    : "Unlock all storage limits: unlimited history and unlimited favorites.";
+    ? "Mở toàn bộ tính năng để tạo nhiều bản nội dung, test nhanh và chốt đơn ổn định hơn mỗi ngày."
+    : "Unlock full features to generate more variants, test faster, and improve daily conversion.";
   const favoriteLimitText = planInfo?.limits?.unlimitedFavorites
     ? (isVi ? "Không giới hạn" : "Unlimited")
     : String(planInfo?.limits?.favoritesLimit ?? 5);
@@ -76,8 +76,8 @@ export default function NextUpgradePage() {
               <h2 className="section-title upgrade-hero-title">{isVi ? "Gói SellerScript Pro" : "SellerScript Pro Plan"}</h2>
               <p className="upgrade-hero-subtitle">
                 {isVi
-                  ? "Nâng cấp để mở mọi giới hạn lưu trữ, tập trung vận hành và theo dõi nội dung dài hạn."
-                  : "Upgrade to remove storage limits and run long-term content operations with confidence."}
+                  ? "Dành cho seller cần tạo nhiều phiên bản nội dung theo phong cách khác nhau, tối ưu nhanh theo từng sản phẩm và từng chiến dịch."
+                  : "Built for sellers who need multi-style content variants and faster optimization across products and campaigns."}
               </p>
               <div className="upgrade-hero-stats">
                 <div className="upgrade-stat-card">
@@ -112,9 +112,9 @@ export default function NextUpgradePage() {
               <h3 className="subsection-title">{isVi ? "Những gì bạn nhận được" : "What you get"}</h3>
               <ul className="upgrade-feature-list">
                 <li>{isVi ? "Generate/cải tiến không giới hạn ở cả 2 trang" : "Unlimited generate/improve on both pages"}</li>
-                <li>{isVi ? "Lịch sử nội dung không giới hạn" : "Unlimited content history"}</li>
-                <li>{isVi ? "Danh sách yêu thích không giới hạn" : "Unlimited favorites list"}</li>
-                <li>{isVi ? "Phù hợp vận hành team, đa chiến dịch" : "Built for team operations and multi-campaign workflows"}</li>
+                <li>{isVi ? "Tạo nhiều phiên bản nội dung để A/B test nhanh" : "Generate multiple variants for fast A/B testing"}</li>
+                <li>{isVi ? "Lịch sử và yêu thích không giới hạn để tái sử dụng nội dung tốt" : "Unlimited history and favorites to reuse winning content"}</li>
+                <li>{isVi ? "Phù hợp vận hành team và đa chiến dịch bán hàng" : "Built for team workflows and multi-campaign selling"}</li>
               </ul>
             </article>
 

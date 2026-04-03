@@ -336,10 +336,10 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     <NextPageFrame>
       <NextShellHeader
         eyebrow="SellerScript"
-        title={isVi ? "Kịch bản review video chốt đơn" : "High-conversion video review scripts"}
+        title={isVi ? "Tạo kịch bản video bán hàng giữ người xem ngay 3 giây đầu" : "Create high-conversion video scripts that hook viewers in 3 seconds"}
         subtitle={isVi
-          ? "Tạo kịch bản TikTok/Shopee có hook mở đầu giữ người xem trong 3 giây đầu."
-          : "Generate TikTok/Shopee scripts with high-retention hooks that stop scrolling."}
+          ? "Chỉ cần brief ngắn và ảnh sản phẩm, AI sẽ tạo hook mở đầu, flow cảnh quay, CTA và hashtag sẵn để bạn quay nhanh và chốt đơn tốt hơn."
+          : "With a short brief and product images, AI generates hooks, scene flow, CTA, and hashtags so you can produce faster and convert better."}
         user={session}
         language={language}
         onLanguageChange={setLanguage}
