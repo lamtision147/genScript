@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { routes } from "@/lib/routes";
 import { LANGUAGE_OPTIONS, getCopy } from "@/lib/i18n";
 import { useThemePreference } from "@/hooks/use-theme-preference";
+import { clearSessionCache } from "@/lib/client/session-cache";
 
 export default function NextShellHeader({
   eyebrow = "SellerScript",
@@ -32,6 +33,7 @@ export default function NextShellHeader({
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    clearSessionCache();
     router.push(routes.login);
     router.refresh();
   }

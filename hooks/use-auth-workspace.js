@@ -5,6 +5,7 @@ import { useAuthBootstrap } from "@/hooks/use-auth-bootstrap";
 import { apiPost } from "@/lib/client/api";
 import { routes } from "@/lib/routes";
 import { getCopy, localizeKnownMessage } from "@/lib/i18n";
+import { writeSessionCache } from "@/lib/client/session-cache";
 
 function safeText(value) {
   return String(value || "").trim();
@@ -71,10 +72,11 @@ export function useAuthWorkspace(language = "vi") {
     setLoading(true);
     try {
       if (mode === "login") {
-        await apiPost(routes.api.loginPassword, {
+        const data = await apiPost(routes.api.loginPassword, {
           email: normalizeEmail(form.email),
           password: safeText(form.password)
         });
+        writeSessionCache(data?.user || null);
         window.location.href = routes.scriptProductInfo;
         return;
       }
@@ -98,10 +100,11 @@ export function useAuthWorkspace(language = "vi") {
           return;
         }
 
-        await apiPost(routes.api.verifyOtp, {
+        const data = await apiPost(routes.api.verifyOtp, {
           email: normalizeEmail(form.email),
           code: safeText(form.code)
         });
+        writeSessionCache(data?.user || null);
         window.location.href = routes.scriptProductInfo;
         return;
       }

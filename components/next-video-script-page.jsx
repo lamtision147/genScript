@@ -589,8 +589,9 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
               <span>{quotaHintText}</span>
               {!isPro ? (
                 <div className="user-actions">
-                  {isGuestQuota ? <a className="ghost-button" href={routes.login}>{isVi ? "Đăng nhập" : "Log in"}</a> : null}
-                  <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>
+                  {isGuestQuota
+                    ? <a className="ghost-button" href={routes.login}>{isVi ? "Đăng nhập" : "Log in"}</a>
+                    : <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>}
                 </div>
               ) : null}
             </div>
