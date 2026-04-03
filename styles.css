@@ -243,7 +243,10 @@ html[data-theme="dark"] .header::before {
 
 .header-topbar-nav .user-actions {
   gap: 8px;
-  padding: 5px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .header-topbar-nav .user-actions .nav-link {
