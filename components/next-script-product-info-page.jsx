@@ -111,7 +111,7 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   return (
     <NextPageFrame>
         <NextShellHeader
-          eyebrow={copy.script.eyebrow || "SellerSpark"}
+          eyebrow={copy.script.eyebrow || "SellerScript"}
           title={copy.script.title}
           subtitle={copy.script.subtitle || ""}
           user={session}
@@ -258,4 +258,5 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
     </NextPageFrame>
   );
 }
+
 
