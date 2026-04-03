@@ -4119,6 +4119,64 @@ html[data-theme="dark"] .login-feature-card {
 
 .login-google {
   width: 100%;
+  min-height: 52px;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(95, 64, 36, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 241, 233, 0.98));
+  color: #2f1e10;
+  box-shadow: 0 10px 24px rgba(35, 20, 10, 0.1);
+}
+
+.login-google:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(35, 20, 10, 0.12);
+  border-color: rgba(95, 64, 36, 0.3);
+}
+
+.login-google:active {
+  transform: translateY(0);
+}
+
+.login-google-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid rgba(160, 160, 160, 0.28);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.login-google-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.login-google-label {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+html[data-theme="dark"] .login-google {
+  border-color: rgba(255, 178, 196, 0.22);
+  background: linear-gradient(180deg, rgba(56, 43, 52, 0.96), rgba(40, 31, 39, 0.96));
+  color: #f8e7ec;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"] .login-google:hover {
+  border-color: rgba(255, 178, 196, 0.34);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
+}
+
+html[data-theme="dark"] .login-google-icon {
+  border-color: rgba(255, 178, 196, 0.22);
 }
 
 .auth-mode-switch {
