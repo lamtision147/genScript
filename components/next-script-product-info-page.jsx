@@ -71,11 +71,11 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
     ? (isVi ? "Pro: không giới hạn lượt tạo/cải tiến trong ngày." : "Pro: unlimited generate/improve requests per day.")
     : isGuestQuota
       ? (isVi
-        ? `Khách: còn ${productQuota?.remaining ?? 2}/2 lượt tạo nội dung hôm nay (tính cả Cải tiến). Đăng nhập để nhận 5 lượt/ngày.`
-        : `Guest: ${productQuota?.remaining ?? 2}/2 content generations left today (including Improve). Log in to get 5/day.`)
+        ? `Khách: còn ${productQuota?.remaining ?? 2}/2 lượt tạo nội dung hôm nay. Đăng nhập để nhận 5 lượt/ngày.`
+        : `Guest: ${productQuota?.remaining ?? 2}/2 content generations left today. Log in to get 5/day.`)
     : (isVi
-      ? `Free: còn ${productQuota?.remaining ?? 5}/5 lượt tạo nội dung hôm nay (tính cả Cải tiến).`
-      : `Free: ${productQuota?.remaining ?? 5}/5 content generations left today (including Improve).`);
+      ? `Free: còn ${productQuota?.remaining ?? 5}/5 lượt tạo nội dung hôm nay.`
+      : `Free: ${productQuota?.remaining ?? 5}/5 content generations left today.`);
 
   function inferStylePresetFromForm(nextForm = form) {
     const tone = Number(nextForm?.tone);
@@ -178,14 +178,14 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
 
             <div className={`quota-note-card ${isPro ? "pro" : "free"}`}>
               <strong>{isVi ? "Quota hôm nay" : "Today quota"}</strong>
-              <span>{quotaHintText}</span>
-              {!isPro ? (
-                <div className="user-actions">
-                  {isGuestQuota
+              <div className="quota-note-row">
+                <span className="quota-note-text">{quotaHintText}</span>
+                {!isPro
+                  ? (isGuestQuota
                     ? <a className="ghost-button" href={routes.login}>{isVi ? "Đăng nhập" : "Log in"}</a>
-                    : <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>}
-                </div>
-              ) : null}
+                    : <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>)
+                  : null}
+              </div>
             </div>
 
             <section className="panel-section coming-soon-card">

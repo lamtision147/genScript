@@ -3390,7 +3390,7 @@ html[data-theme="dark"] .upgrade-success-perks {
 .quota-note-card {
   margin-top: 10px;
   border-radius: 14px;
-  border: 1px dashed rgba(185, 92, 16, 0.26);
+  border: none;
   background: rgba(255, 249, 239, 0.72);
   padding: 11px 12px;
   display: grid;
@@ -3411,23 +3411,42 @@ html[data-theme="dark"] .upgrade-success-perks {
 }
 
 .quota-note-card.pro {
-  border-style: solid;
-  border-color: rgba(105, 79, 50, 0.24);
+  border: none;
   background: rgba(252, 248, 240, 0.8);
 }
 
 html[data-theme="dark"] .quota-note-card {
-  border-color: rgba(255, 178, 196, 0.2);
+  border: none;
   background: rgba(45, 35, 43, 0.84);
 }
 
 html[data-theme="dark"] .quota-note-card.pro {
-  border-color: rgba(255, 159, 183, 0.26);
+  border: none;
   background: rgba(56, 42, 50, 0.86);
 }
 
+.quota-note-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quota-note-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .quota-note-card .ghost-button {
-  justify-self: start;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .quota-note-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .upgrade-inline-cta {

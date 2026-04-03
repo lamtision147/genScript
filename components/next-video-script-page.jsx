@@ -132,11 +132,11 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     ? (isVi ? "Pro: không giới hạn lượt tạo/cải tiến kịch bản trong ngày." : "Pro: unlimited video generate/improve requests per day.")
     : isGuestQuota
       ? (isVi
-        ? `Khách: còn ${videoQuota?.remaining ?? 2}/2 lượt tạo kịch bản hôm nay (tính cả Cải tiến). Đăng nhập để nhận 5 lượt/ngày.`
-        : `Guest: ${videoQuota?.remaining ?? 2}/2 video generations left today (including Improve). Log in to get 5/day.`)
+        ? `Khách: còn ${videoQuota?.remaining ?? 2}/2 lượt tạo kịch bản hôm nay. Đăng nhập để nhận 5 lượt/ngày.`
+        : `Guest: ${videoQuota?.remaining ?? 2}/2 video generations left today. Log in to get 5/day.`)
     : (isVi
-      ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay (tính cả Cải tiến).`
-      : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today (including Improve).`);
+      ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay.`
+      : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today.`);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
   const resolvedVariantOpeningStyles = (() => {
     const sequence = [0, 1, 2, 3, 4];
@@ -586,14 +586,14 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
 
             <div className={`quota-note-card ${isPro ? "pro" : "free"}`}>
               <strong>{isVi ? "Quota hôm nay" : "Today quota"}</strong>
-              <span>{quotaHintText}</span>
-              {!isPro ? (
-                <div className="user-actions">
-                  {isGuestQuota
+              <div className="quota-note-row">
+                <span className="quota-note-text">{quotaHintText}</span>
+                {!isPro
+                  ? (isGuestQuota
                     ? <a className="ghost-button" href={routes.login}>{isVi ? "Đăng nhập" : "Log in"}</a>
-                    : <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>}
-                </div>
-              ) : null}
+                    : <a className="ghost-button" href={routes.upgrade}>{isVi ? "Nâng cấp Pro" : "Upgrade Pro"}</a>)
+                  : null}
+              </div>
             </div>
             </fieldset>
           </section>
