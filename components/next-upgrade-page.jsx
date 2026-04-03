@@ -3,6 +3,7 @@
 import NextPageFrame from "@/components/next-page-frame";
 import NextShellHeader from "@/components/next-shell-header";
 import NextTextField from "@/components/next-text-field";
+import NextSelectField from "@/components/next-select-field";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useUpgradeWorkspace } from "@/hooks/use-upgrade-workspace";
 import { routes } from "@/lib/routes";
@@ -15,6 +16,7 @@ export default function NextUpgradePage() {
     session,
     planInfo,
     paymentProvider,
+    selectedGateway,
     loadingPlan,
     processing,
     cancelling,
@@ -40,6 +42,8 @@ export default function NextUpgradePage() {
   const monthlyDisplay = isVi ? "249.000đ" : "$10";
   const firstMonthDisplay = isVi ? "129.000đ" : "$5";
   const regularDisplay = isVi ? "249.000đ" : "$10";
+  const usingStripe = selectedGateway === "stripe";
+  const isStripeAvailable = paymentProvider === "stripe";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -172,58 +176,104 @@ export default function NextUpgradePage() {
                   : (isVi ? "Đang chạy giao diện thanh toán nội bộ (mock)." : "Using internal mock payment UI.")}
               </p>
 
-              <div className="form-grid">
-                <NextTextField
-                  label={isVi ? "Tên chủ thẻ" : "Card holder"}
-                  value={cardForm.cardHolder}
-                  onChange={(value) => actions.updateCardField("cardHolder", value)}
-                  placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
-                />
-                <NextTextField
-                  label={isVi ? "Số thẻ" : "Card number"}
-                  value={cardForm.cardNumber}
-                  onChange={(value) => actions.updateCardField("cardNumber", value)}
-                  placeholder="4242 4242 4242 4242"
-                />
-              </div>
+              <NextSelectField
+                label={isVi ? "Cổng thanh toán" : "Payment gateway"}
+                value={selectedGateway}
+                options={isStripeAvailable
+                  ? [
+                    { value: "stripe", label: "Stripe" },
+                    { value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }
+                  ]
+                  : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }]}
+                onChange={actions.setPaymentGateway}
+              />
 
-              <div className="form-grid">
-                <NextTextField
-                  label={isVi ? "Ngày hết hạn" : "Expiry"}
-                  value={cardForm.expiry}
-                  onChange={(value) => actions.updateCardField("expiry", value)}
-                  placeholder="MM/YY"
-                />
-                <NextTextField
-                  label="CVC"
-                  value={cardForm.cvc}
-                  onChange={(value) => actions.updateCardField("cvc", value)}
-                  placeholder="123"
-                />
-              </div>
+              {usingStripe ? (
+                <div className="upgrade-gateway-preview stripe">
+                  <div className="upgrade-gateway-preview-head">
+                    <strong>Stripe</strong>
+                    <span>{isVi ? "Thanh toán bảo mật, chuyển hướng tới trang Stripe chính thức." : "Secure checkout, redirect to official Stripe page."}</span>
+                  </div>
+                  <div className="upgrade-gateway-preview-rows">
+                    <div>
+                      <span>{isVi ? "Thẻ thanh toán" : "Card payment"}</span>
+                      <strong>Visa · Mastercard · JCB</strong>
+                    </div>
+                    <div>
+                      <span>{isVi ? "Bảo mật" : "Security"}</span>
+                      <strong>PCI DSS · 3D Secure</strong>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="form-grid">
+                    <NextTextField
+                      label={isVi ? "Tên chủ thẻ" : "Card holder"}
+                      value={cardForm.cardHolder}
+                      onChange={(value) => actions.updateCardField("cardHolder", value)}
+                      placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
+                    />
+                    <NextTextField
+                      label={isVi ? "Số thẻ" : "Card number"}
+                      value={cardForm.cardNumber}
+                      onChange={(value) => actions.updateCardField("cardNumber", value)}
+                      placeholder="4242 4242 4242 4242"
+                    />
+                  </div>
+
+                  <div className="form-grid">
+                    <NextTextField
+                      label={isVi ? "Ngày hết hạn" : "Expiry"}
+                      value={cardForm.expiry}
+                      onChange={(value) => actions.updateCardField("expiry", value)}
+                      placeholder="MM/YY"
+                    />
+                    <NextTextField
+                      label="CVC"
+                      value={cardForm.cvc}
+                      onChange={(value) => actions.updateCardField("cvc", value)}
+                      placeholder="123"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="upgrade-payment-actions">
-                <button
-                  type="button"
-                  className="primary-button"
-                  disabled={processing || loadingPlan || isPro}
-                  onClick={actions.submitUpgrade}
-                >
-                  {isPro
-                    ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                    : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
-                </button>
+                {usingStripe ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={processing || loadingPlan || isPro}
+                    onClick={actions.startStripeCheckout}
+                  >
+                    {isPro
+                      ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                      : (processing ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...") : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe"))}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={processing || loadingPlan || isPro}
+                    onClick={actions.submitUpgrade}
+                  >
+                    {isPro
+                      ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                      : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
+                  </button>
+                )}
 
-                {!isPro && paymentProvider === "stripe" ? (
+                {!isPro && usingStripe ? (
                   <button
                     type="button"
                     className="ghost-button"
                     disabled={processing || loadingPlan}
-                    onClick={actions.startStripeCheckout}
+                    onClick={() => actions.setPaymentGateway("internal")}
                   >
                     {processing
-                      ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
-                      : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")}
+                      ? (isVi ? "Đang xử lý..." : "Processing...")
+                      : (isVi ? "Sử dụng form nội bộ" : "Use internal form")}
                   </button>
                 ) : null}
               </div>

@@ -14,6 +14,10 @@ function initialCardForm() {
   };
 }
 
+function normalizeGateway(value = "") {
+  return String(value || "").trim().toLowerCase() === "stripe" ? "stripe" : "internal";
+}
+
 function sanitizeCardNumber(value = "") {
   return String(value || "").replace(/\D+/g, "").slice(0, 19);
 }
@@ -46,6 +50,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const { session, setSession } = useAuthBootstrap();
   const [planInfo, setPlanInfo] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState("mock");
+  const [selectedGateway, setSelectedGateway] = useState("internal");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -67,7 +72,14 @@ export function useUpgradeWorkspace(language = "vi") {
 
       setSession(sessionData?.user || null);
       setPlanInfo(planData?.planInfo || null);
-      setPaymentProvider(planData?.payment?.provider || "mock");
+      const provider = normalizeGateway(planData?.payment?.provider || "internal");
+      setPaymentProvider(provider === "stripe" ? "stripe" : "mock");
+      setSelectedGateway((prev) => {
+        if (provider === "stripe") {
+          return normalizeGateway(prev || "stripe");
+        }
+        return "internal";
+      });
     } catch (error) {
       setMessage(error?.message || (isVi ? "Không thể tải thông tin gói." : "Unable to load plan information."));
     } finally {
@@ -78,6 +90,12 @@ export function useUpgradeWorkspace(language = "vi") {
   useEffect(() => {
     refreshPlan();
   }, [language]);
+
+  useEffect(() => {
+    if (paymentProvider !== "stripe" && selectedGateway !== "internal") {
+      setSelectedGateway("internal");
+    }
+  }, [paymentProvider, selectedGateway]);
 
   async function submitUpgrade() {
     const validationError = validateCardForm(cardForm, language);
@@ -187,6 +205,7 @@ export function useUpgradeWorkspace(language = "vi") {
     session,
     planInfo,
     paymentProvider,
+    selectedGateway,
     loadingPlan,
     processing,
     cancelling,
@@ -202,6 +221,14 @@ export function useUpgradeWorkspace(language = "vi") {
       confirmStripeCheckout,
       cancelProPlan,
       updateCardField,
+      setPaymentGateway: (value) => {
+        const next = normalizeGateway(value);
+        if (next === "stripe" && paymentProvider !== "stripe") {
+          setSelectedGateway("internal");
+          return;
+        }
+        setSelectedGateway(next);
+      },
       setMessage,
       closeSuccessPopup: () => setSuccessPopupOpen(false)
     }

@@ -3128,6 +3128,69 @@ html[data-theme="dark"] .upgrade-limit-rows {
   gap: 10px;
 }
 
+.upgrade-gateway-preview {
+  border: 1px solid rgba(185, 92, 16, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 250, 243, 0.95), rgba(248, 242, 233, 0.94));
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.upgrade-gateway-preview-head {
+  display: grid;
+  gap: 4px;
+}
+
+.upgrade-gateway-preview-head strong {
+  color: #5e330f;
+}
+
+.upgrade-gateway-preview-head span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.upgrade-gateway-preview-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upgrade-gateway-preview-rows > div {
+  border: 1px solid rgba(185, 92, 16, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.upgrade-gateway-preview-rows span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.upgrade-gateway-preview-rows strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+html[data-theme="dark"] .upgrade-gateway-preview {
+  border-color: rgba(255, 159, 183, 0.24);
+  background: linear-gradient(180deg, rgba(52, 40, 47, 0.94), rgba(36, 28, 35, 0.94));
+}
+
+html[data-theme="dark"] .upgrade-gateway-preview-head strong {
+  color: #f3dce3;
+}
+
+html[data-theme="dark"] .upgrade-gateway-preview-rows > div {
+  border-color: rgba(255, 178, 196, 0.2);
+  background: rgba(45, 35, 43, 0.86);
+}
+
 .upgrade-feedback-banner {
   padding: 12px;
   border-radius: 12px;
@@ -3293,6 +3356,10 @@ html[data-theme="dark"] .profile-plan-banner {
   }
 
   .upgrade-payment-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-gateway-preview-rows {
     grid-template-columns: 1fr;
   }
 
