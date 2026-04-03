@@ -3237,6 +3237,11 @@ html[data-theme="dark"] .quota-note-card.pro {
   background: rgba(255, 249, 239, 0.72);
 }
 
+html[data-theme="dark"] .profile-plan-banner {
+  border-color: rgba(255, 159, 183, 0.24);
+  background: rgba(45, 35, 43, 0.86);
+}
+
 @media (max-width: 980px) {
   .upgrade-hero-card {
     grid-template-columns: 1fr;
@@ -3668,6 +3673,11 @@ html[data-theme="dark"] .history-summary-bar {
   background: rgba(255, 255, 255, 0.72);
 }
 
+html[data-theme="dark"] .profile-favorite-tabs {
+  border-color: rgba(255, 178, 196, 0.22);
+  background: rgba(45, 35, 43, 0.86);
+}
+
 .profile-favorite-tab {
   min-height: 34px;
   padding: 6px 14px;
@@ -3681,6 +3691,16 @@ html[data-theme="dark"] .history-summary-bar {
   background: rgba(239, 141, 44, 0.16);
   border-color: rgba(185, 92, 16, 0.42);
   color: #7a3f0b;
+}
+
+html[data-theme="dark"] .profile-favorite-tab {
+  color: #f0d9e1;
+}
+
+html[data-theme="dark"] .profile-favorite-tab.active {
+  background: rgba(255, 97, 131, 0.28);
+  border-color: rgba(255, 159, 183, 0.34);
+  color: #ffe7ee;
 }
 
 .profile-vi-heading {
