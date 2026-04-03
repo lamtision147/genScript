@@ -3,7 +3,7 @@ import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
 import { buildImprovedVariantGroupId, createHistoryItemAsync } from "@/lib/server/history-service";
 import { generateProductCopyVariants, getLocalizedVariantLabel, getVariantStyleLabel } from "@/lib/server/ai-service";
 import { normalizeGeneratePayload, RequestValidationError } from "@/lib/server/generate-payload";
-import { buildQuotaExceededMessage, consumeGenerationQuotaAsync } from "@/lib/server/generation-quota-service";
+import { buildQuotaExceededMessage, consumeGenerationQuotaAsync, ensureGuestQuotaCookie, ensureGuestQuotaUsageCookie } from "@/lib/server/generation-quota-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 import { ensurePlanInfoForUserAsync } from "@/lib/server/billing-service";
 
@@ -30,11 +30,20 @@ export async function POST(request) {
 
     if (!quota.allowed) {
       const errorMessage = buildQuotaExceededMessage("product_copy", payload.lang, quota);
-      return withRequestId(NextResponse.json({
+      const deniedResponse = withRequestId(NextResponse.json({
         error: errorMessage,
         code: "FREE_DAILY_QUOTA_EXCEEDED",
         quota
       }, { status: 429 }), ctx);
+      if (!user?.id) {
+        ensureGuestQuotaCookie(deniedResponse, request);
+        ensureGuestQuotaUsageCookie(deniedResponse, request, {
+          userId: "",
+          scope: "product_copy",
+          used: quota?.used || 0
+        });
+      }
+      return deniedResponse;
     }
 
     const generated = await generateProductCopyVariants(payload);
@@ -101,7 +110,7 @@ export async function POST(request) {
       historyId: primaryEntry?.id || null,
       ms: elapsedMs(ctx)
     });
-    return withRequestId(NextResponse.json({
+    const response = withRequestId(NextResponse.json({
       ...result,
       historyId: primaryEntry?.id,
       title: primaryEntry?.title || result?.title,
@@ -111,6 +120,15 @@ export async function POST(request) {
       historyIds: entries.map((item) => item.id),
       variantGroupId: primaryEntry?.form?.variantGroupId || variantGroupId
     }), ctx);
+    if (!user?.id) {
+      ensureGuestQuotaCookie(response, request);
+      ensureGuestQuotaUsageCookie(response, request, {
+        userId: "",
+        scope: "product_copy",
+        used: quota?.used || 0
+      });
+    }
+    return response;
   } catch (error) {
     logError(ctx, "generate.failed", error, { ms: elapsedMs(ctx) });
     if (error instanceof RequestValidationError) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
 import { generateVideoReviewScript, getVideoVariantStyleLabel } from "@/lib/server/video-script-service";
 import { buildImprovedVariantGroupId, createHistoryItemAsync } from "@/lib/server/history-service";
-import { buildQuotaExceededMessage, consumeGenerationQuotaAsync } from "@/lib/server/generation-quota-service";
+import { buildQuotaExceededMessage, consumeGenerationQuotaAsync, ensureGuestQuotaCookie, ensureGuestQuotaUsageCookie } from "@/lib/server/generation-quota-service";
 import { ensurePlanInfoForUserAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
@@ -30,11 +30,20 @@ export async function POST(request) {
 
     if (!quota.allowed) {
       const errorMessage = buildQuotaExceededMessage("video_script", body?.lang || "vi", quota);
-      return withRequestId(NextResponse.json({
+      const deniedResponse = withRequestId(NextResponse.json({
         error: errorMessage,
         code: "FREE_DAILY_QUOTA_EXCEEDED",
         quota
       }, { status: 429 }), ctx);
+      if (!user?.id) {
+        ensureGuestQuotaCookie(deniedResponse, request);
+        ensureGuestQuotaUsageCookie(deniedResponse, request, {
+          userId: "",
+          scope: "video_script",
+          used: quota?.used || 0
+        });
+      }
+      return deniedResponse;
     }
 
     const generated = await generateVideoReviewScript(body);
@@ -125,7 +134,7 @@ export async function POST(request) {
       ms: elapsedMs(ctx)
     });
 
-    return withRequestId(NextResponse.json({
+    const response = withRequestId(NextResponse.json({
       script: {
         ...primaryScript,
         variants: responseVariants,
@@ -138,6 +147,15 @@ export async function POST(request) {
       historyIds: entries.map((item) => item.id),
       variantGroupId: primaryEntry?.form?.variantGroupId || variantGroupId
     }), ctx);
+    if (!user?.id) {
+      ensureGuestQuotaCookie(response, request);
+      ensureGuestQuotaUsageCookie(response, request, {
+        userId: "",
+        scope: "video_script",
+        used: quota?.used || 0
+      });
+    }
+    return response;
   } catch (error) {
     logError(ctx, "generate.video-script.failed", error, { ms: elapsedMs(ctx) });
     return withRequestId(

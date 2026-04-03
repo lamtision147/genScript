@@ -665,7 +665,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
   }, [isProPlan, variantCount, form?.openingStyle]);
 
   useEffect(() => {
-    fetch(routes.api.session)
+    fetch(routes.api.session, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         setSession(data?.user || null);
@@ -1167,7 +1167,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       const fallback = copy?.messages?.generateError || "Không thể tạo nội dung lúc này.";
       const raw = error.message || fallback;
       setMessage(localizeKnownMessage(raw, copy) || raw);
-      fetch(routes.api.session)
+      fetch(routes.api.session, { credentials: "include" })
         .then((res) => res.json())
         .then((data) => {
           setSession(data?.user || null);

@@ -291,7 +291,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
 
   async function refreshUserData() {
     const [sessionRes, historyRes, favoritesRes] = await Promise.all([
-      apiGet(routes.api.session, { user: null }),
+      apiGet(routes.api.session),
       apiGet(`${routes.api.history}?type=product_copy&limit=200`, { items: [] }),
       apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
     ]);
