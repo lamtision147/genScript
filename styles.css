@@ -3234,8 +3234,73 @@ html[data-theme="dark"] .upgrade-feedback-banner {
   box-shadow: 0 22px 46px rgba(38, 22, 8, 0.24);
   padding: 24px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   text-align: center;
+}
+
+.upgrade-success-badge {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(185, 92, 16, 0.24);
+  background: rgba(255, 220, 176, 0.56);
+  color: #7f3f09;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.upgrade-success-subtitle {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.upgrade-success-summary {
+  border: 1px dashed rgba(185, 92, 16, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 248, 238, 0.86);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.upgrade-success-summary-item {
+  border: 1px solid rgba(185, 92, 16, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 8px;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.upgrade-success-summary-item span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.upgrade-success-summary-item strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.upgrade-success-perks {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.upgrade-success-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .upgrade-success-icon {
@@ -3271,6 +3336,36 @@ html[data-theme="dark"] .upgrade-feedback-banner {
   gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+html[data-theme="dark"] .upgrade-success-modal {
+  border-color: rgba(255, 159, 183, 0.28);
+  background: linear-gradient(180deg, rgba(52, 40, 48, 0.96), rgba(36, 28, 35, 0.95));
+  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.42);
+}
+
+html[data-theme="dark"] .upgrade-success-badge {
+  border-color: rgba(255, 159, 183, 0.32);
+  background: rgba(255, 97, 131, 0.28);
+  color: #ffe4ec;
+}
+
+html[data-theme="dark"] .upgrade-success-summary {
+  border-color: rgba(255, 159, 183, 0.24);
+  background: rgba(45, 35, 43, 0.86);
+}
+
+html[data-theme="dark"] .upgrade-success-summary-item {
+  border-color: rgba(255, 178, 196, 0.18);
+  background: rgba(56, 44, 52, 0.9);
+}
+
+html[data-theme="dark"] .upgrade-success-summary-item strong {
+  color: #f5dde4;
+}
+
+html[data-theme="dark"] .upgrade-success-perks {
+  color: #ead1d8;
 }
 
 .quota-note-card {
@@ -3360,6 +3455,10 @@ html[data-theme="dark"] .profile-plan-banner {
   }
 
   .upgrade-gateway-preview-rows {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-success-summary {
     grid-template-columns: 1fr;
   }
 

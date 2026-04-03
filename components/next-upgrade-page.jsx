@@ -55,6 +55,19 @@ export default function NextUpgradePage() {
   const remainingDaysText = Number.isFinite(Number(planInfo?.remainingDays))
     ? `${Math.max(0, Number(planInfo.remainingDays))} ${isVi ? "ngày" : "days"}`
     : "--";
+  const proPerks = isVi
+    ? [
+      "Generate/cải tiến không giới hạn ở cả 2 trang",
+      "Tạo nhiều phiên bản nội dung để A/B test nhanh",
+      "Lịch sử và danh sách yêu thích không giới hạn",
+      "Tối ưu quy trình vận hành đa sản phẩm, đa chiến dịch"
+    ]
+    : [
+      "Unlimited generate/improve on both pages",
+      "Create multiple variants for faster A/B testing",
+      "Unlimited history and favorites",
+      "Better workflow for multi-product, multi-campaign operations"
+    ];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -352,8 +365,40 @@ export default function NextUpgradePage() {
         <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={isVi ? "Nâng cấp thành công" : "Upgrade success"}>
           <div className="upgrade-success-modal">
             <div className="upgrade-success-icon" aria-hidden="true">✓</div>
+            <div className="upgrade-success-badge">{isVi ? "PRO ĐÃ KÍCH HOẠT" : "PRO ACTIVATED"}</div>
             <h3>{isVi ? "Nâng cấp Pro thành công" : "Pro upgrade successful"}</h3>
-            <p>{successPopupMessage}</p>
+            <p className="upgrade-success-subtitle">
+              {isVi
+                ? "Tài khoản của bạn đã mở đầy đủ đặc quyền Pro. Bạn có thể bắt đầu tạo nhiều phiên bản nội dung và tối ưu chuyển đổi ngay." 
+                : "Your account now has full Pro benefits. You can generate multiple content variants and optimize conversion right away."}
+            </p>
+
+            <div className="upgrade-success-summary">
+              <div className="upgrade-success-summary-item">
+                <span>{isVi ? "Gói hiện tại" : "Current plan"}</span>
+                <strong>PRO</strong>
+              </div>
+              <div className="upgrade-success-summary-item">
+                <span>{isVi ? "Hiệu lực đến" : "Valid until"}</span>
+                <strong>{planExpiresAtText}</strong>
+              </div>
+              <div className="upgrade-success-summary-item">
+                <span>{isVi ? "Thời gian còn lại" : "Remaining time"}</span>
+                <strong>{remainingDaysText}</strong>
+              </div>
+              <div className="upgrade-success-summary-item">
+                <span>{isVi ? "Giới hạn tạo" : "Generate limit"}</span>
+                <strong>{isVi ? "Không giới hạn" : "Unlimited"}</strong>
+              </div>
+            </div>
+
+            <ul className="upgrade-success-perks">
+              {proPerks.map((perk) => (
+                <li key={perk}>{perk}</li>
+              ))}
+            </ul>
+
+            <p className="upgrade-success-note">{successPopupMessage}</p>
             <div className="upgrade-success-actions">
               <a className="primary-button" href={routes.scriptProductInfo}>{isVi ? "Bắt đầu sử dụng Pro" : "Start using Pro"}</a>
               <button type="button" className="ghost-button" onClick={actions.closeSuccessPopup}>{isVi ? "Đóng" : "Close"}</button>
