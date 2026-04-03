@@ -156,6 +156,10 @@ html[data-theme="dark"] .header {
     0 18px 42px rgba(0, 0, 0, 0.42);
 }
 
+html[data-theme="dark"] .header::before {
+  background: radial-gradient(circle, rgba(255, 118, 149, 0.2), transparent 68%);
+}
+
 .header::before {
   content: "";
   position: absolute;
@@ -302,6 +306,12 @@ html[data-theme="dark"] .header-language-switch select {
   box-shadow: 0 6px 14px rgba(34, 20, 9, 0.1);
 }
 
+html[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(69, 49, 59, 0.94);
+  border-color: rgba(255, 178, 196, 0.28);
+  box-shadow: 0 6px 14px rgba(191, 43, 79, 0.2);
+}
+
 html[data-theme="dark"] .theme-toggle {
   border-color: rgba(255, 174, 191, 0.24);
   background: rgba(43, 31, 40, 0.9);
@@ -368,6 +378,12 @@ html[data-theme="dark"] .user-actions .nav-link {
   background: rgba(255, 255, 255, 0.8);
   border-color: rgba(93, 61, 32, 0.14);
   box-shadow: 0 6px 14px rgba(34, 20, 9, 0.1);
+}
+
+html[data-theme="dark"] .user-actions .nav-link:hover {
+  background: rgba(67, 49, 59, 0.92);
+  border-color: rgba(255, 178, 196, 0.24);
+  box-shadow: 0 6px 14px rgba(191, 43, 79, 0.18);
 }
 
 .user-actions .nav-link.active {
