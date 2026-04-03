@@ -227,14 +227,12 @@ export default function NextUpgradePage() {
                       {isVi ? "Nâng cấp gói Pro" : "Upgrade to Pro"}
                     </button>
                   )}
-                  <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
               ) : (
                 <div className="upgrade-actions-stack">
                   <button type="button" className="primary-button" onClick={openPaymentSection}>
                     {isVi ? "Nâng cấp gói Pro" : "Upgrade to Pro"}
                   </button>
-                  <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
               )}
             </article>
