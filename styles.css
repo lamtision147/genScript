@@ -3128,6 +3128,22 @@ html[data-theme="dark"] .upgrade-limit-rows {
   gap: 10px;
 }
 
+.upgrade-gateway-placeholder {
+  border: 1px dashed rgba(185, 92, 16, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 249, 239, 0.74);
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px;
+  line-height: 1.55;
+}
+
+html[data-theme="dark"] .upgrade-gateway-placeholder {
+  border-color: rgba(255, 159, 183, 0.24);
+  background: rgba(45, 35, 43, 0.86);
+  color: #d8c2ca;
+}
+
 .upgrade-gateway-preview {
   border: 1px solid rgba(185, 92, 16, 0.2);
   border-radius: 14px;

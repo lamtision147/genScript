@@ -45,6 +45,7 @@ export default function NextUpgradePage() {
   const regularDisplay = isVi ? "249.000đ" : "$10";
   const usingStripe = selectedGateway === "stripe";
   const isStripeAvailable = paymentProvider === "stripe";
+  const hasSelectedGateway = Boolean(selectedGateway);
   const planExpiresAtText = (() => {
     const raw = session?.planExpiresAt || planInfo?.expiresAt || "";
     if (!raw) return isVi ? "Chưa có" : "Not available";
@@ -225,16 +226,19 @@ export default function NextUpgradePage() {
               <NextSelectField
                 label={isVi ? "Cổng thanh toán" : "Payment gateway"}
                 value={selectedGateway}
-                options={isStripeAvailable
+                options={[
+                  { value: "", label: isVi ? "-- Chọn cổng thanh toán --" : "-- Select payment gateway --" },
+                  ...(isStripeAvailable
                   ? [
                     { value: "stripe", label: "Stripe" },
                     { value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }
                   ]
-                  : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }]}
+                  : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }])
+                ]}
                 onChange={actions.setPaymentGateway}
               />
 
-              {usingStripe ? (
+              {hasSelectedGateway && usingStripe ? (
                 <div className="upgrade-gateway-preview stripe">
                   <div className="upgrade-gateway-preview-head">
                     <strong>Stripe</strong>
@@ -251,7 +255,7 @@ export default function NextUpgradePage() {
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : (hasSelectedGateway ? (
                 <>
                   <div className="form-grid">
                     <NextTextField
@@ -283,14 +287,20 @@ export default function NextUpgradePage() {
                     />
                   </div>
                 </>
-              )}
+              ) : (
+                <div className="upgrade-gateway-placeholder">
+                  {isVi
+                    ? "Vui lòng chọn cổng thanh toán để hiển thị thông tin và form thanh toán tương ứng."
+                    : "Please select a payment gateway to show the corresponding payment details and form."}
+                </div>
+              ))}
 
               <div className="upgrade-payment-actions">
                 {usingStripe ? (
                   <button
                     type="button"
                     className="primary-button"
-                    disabled={processing || loadingPlan || !canPurchasePro}
+                    disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
                     onClick={actions.startStripeCheckout}
                   >
                     {!canPurchasePro
@@ -305,7 +315,7 @@ export default function NextUpgradePage() {
                   <button
                     type="button"
                     className="primary-button"
-                    disabled={processing || loadingPlan || !canPurchasePro}
+                    disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
                     onClick={actions.submitUpgrade}
                   >
                     {!canPurchasePro
@@ -318,7 +328,7 @@ export default function NextUpgradePage() {
                   </button>
                 )}
 
-                {usingStripe && canPurchasePro ? (
+                {usingStripe && canPurchasePro && hasSelectedGateway ? (
                   <button
                     type="button"
                     className="ghost-button"

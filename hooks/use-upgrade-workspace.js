@@ -15,7 +15,10 @@ function initialCardForm() {
 }
 
 function normalizeGateway(value = "") {
-  return String(value || "").trim().toLowerCase() === "stripe" ? "stripe" : "internal";
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "stripe") return "stripe";
+  if (raw === "internal") return "internal";
+  return "";
 }
 
 function sanitizeCardNumber(value = "") {
@@ -50,7 +53,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const { session, setSession } = useAuthBootstrap();
   const [planInfo, setPlanInfo] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState("mock");
-  const [selectedGateway, setSelectedGateway] = useState("internal");
+  const [selectedGateway, setSelectedGateway] = useState("");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -75,12 +78,7 @@ export function useUpgradeWorkspace(language = "vi") {
       setPlanInfo(planData?.planInfo || null);
       const provider = normalizeGateway(planData?.payment?.provider || "internal");
       setPaymentProvider(provider === "stripe" ? "stripe" : "mock");
-      setSelectedGateway((prev) => {
-        if (provider === "stripe") {
-          return normalizeGateway(prev || "stripe");
-        }
-        return "internal";
-      });
+      setSelectedGateway((prev) => normalizeGateway(prev));
     } catch (error) {
       setMessage(error?.message || (isVi ? "Không thể tải thông tin gói." : "Unable to load plan information."));
     } finally {
@@ -93,8 +91,8 @@ export function useUpgradeWorkspace(language = "vi") {
   }, [language]);
 
   useEffect(() => {
-    if (paymentProvider !== "stripe" && selectedGateway !== "internal") {
-      setSelectedGateway("internal");
+    if (selectedGateway === "stripe" && paymentProvider !== "stripe") {
+      setSelectedGateway("");
     }
   }, [paymentProvider, selectedGateway]);
 
@@ -252,8 +250,12 @@ export function useUpgradeWorkspace(language = "vi") {
       updateCardField,
       setPaymentGateway: (value) => {
         const next = normalizeGateway(value);
+        if (!next) {
+          setSelectedGateway("");
+          return;
+        }
         if (next === "stripe" && paymentProvider !== "stripe") {
-          setSelectedGateway("internal");
+          setSelectedGateway("");
           return;
         }
         setSelectedGateway(next);
