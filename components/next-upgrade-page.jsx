@@ -7,7 +7,7 @@ import NextSelectField from "@/components/next-select-field";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { useUpgradeWorkspace } from "@/hooks/use-upgrade-workspace";
 import { routes } from "@/lib/routes";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 export default function NextUpgradePage() {
@@ -58,6 +58,7 @@ export default function NextUpgradePage() {
     : "--";
   const renewalMode = Boolean(isPro && planInfo?.cancelAtPeriodEnd);
   const canPurchasePro = Boolean(!isPro || renewalMode);
+  const [showPaymentSection, setShowPaymentSection] = useState(false);
   const proPerks = isVi
     ? [
       "Generate/cải tiến không giới hạn ở cả 2 trang",
@@ -80,6 +81,7 @@ export default function NextUpgradePage() {
 
     if (checkoutStatus === "cancel") {
       actions.setMessage(isVi ? "Bạn đã hủy thanh toán Stripe." : "You cancelled Stripe checkout.");
+      setShowPaymentSection(true);
       return;
     }
 
@@ -87,6 +89,21 @@ export default function NextUpgradePage() {
       actions.confirmStripeCheckout(sessionId);
     }
   }, [isVi]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#upgrade-payment-card") {
+      setShowPaymentSection(true);
+    }
+  }, []);
+
+  function openPaymentSection() {
+    setShowPaymentSection(true);
+    setTimeout(() => {
+      const paymentNode = document.getElementById("upgrade-payment-card");
+      paymentNode?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
 
   return (
     <NextPageFrame>
@@ -206,144 +223,153 @@ export default function NextUpgradePage() {
                         : (isVi ? "Hủy gói Pro" : "Cancel Pro plan")}
                     </button>
                   ) : (
-                    <a className="ghost-button" href="#upgrade-payment-card">
-                      {isVi ? "Đăng ký lại / gia hạn Pro" : "Resubscribe / extend Pro"}
-                    </a>
+                    <button type="button" className="primary-button" onClick={openPaymentSection}>
+                      {isVi ? "Nâng cấp gói Pro" : "Upgrade to Pro"}
+                    </button>
                   )}
                   <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
-              ) : null}
+              ) : (
+                <div className="upgrade-actions-stack">
+                  <button type="button" className="primary-button" onClick={openPaymentSection}>
+                    {isVi ? "Nâng cấp gói Pro" : "Upgrade to Pro"}
+                  </button>
+                  <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
+                </div>
+              )}
             </article>
 
-            <section id="upgrade-payment-card" className="upgrade-payment-card">
-              <h3 className="subsection-title">{isVi ? "Thanh toán" : "Payment"}</h3>
-              <p className="inline-note">
-                {paymentProvider === "stripe"
-                  ? (isVi ? "Stripe đã sẵn sàng ở backend. Bạn có thể thanh toán trực tiếp qua Stripe hoặc dùng form nội bộ để demo." : "Stripe is configured on backend. You can pay via Stripe or use internal form for demo flow.")
-                  : (isVi ? "Đang chạy giao diện thanh toán nội bộ (mock)." : "Using internal mock payment UI.")}
-              </p>
+            {showPaymentSection ? (
+              <section id="upgrade-payment-card" className="upgrade-payment-card">
+                <h3 className="subsection-title">{isVi ? "Thanh toán" : "Payment"}</h3>
+                <p className="inline-note">
+                  {paymentProvider === "stripe"
+                    ? (isVi ? "Stripe đã sẵn sàng ở backend. Bạn có thể thanh toán trực tiếp qua Stripe hoặc dùng form nội bộ để demo." : "Stripe is configured on backend. You can pay via Stripe or use internal form for demo flow.")
+                    : (isVi ? "Đang chạy giao diện thanh toán nội bộ (mock)." : "Using internal mock payment UI.")}
+                </p>
 
-              <NextSelectField
-                label={isVi ? "Cổng thanh toán" : "Payment gateway"}
-                value={selectedGateway}
-                options={[
-                  { value: "", label: isVi ? "-- Chọn cổng thanh toán --" : "-- Select payment gateway --" },
-                  ...(isStripeAvailable
-                  ? [
-                    { value: "stripe", label: "Stripe" },
-                    { value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }
-                  ]
-                  : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }])
-                ]}
-                onChange={actions.setPaymentGateway}
-              />
+                <NextSelectField
+                  label={isVi ? "Cổng thanh toán" : "Payment gateway"}
+                  value={selectedGateway}
+                  options={[
+                    { value: "", label: isVi ? "-- Chọn cổng thanh toán --" : "-- Select payment gateway --" },
+                    ...(isStripeAvailable
+                    ? [
+                      { value: "stripe", label: "Stripe" },
+                      { value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }
+                    ]
+                    : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }])
+                  ]}
+                  onChange={actions.setPaymentGateway}
+                />
 
-              {hasSelectedGateway && usingStripe ? (
-                <div className="upgrade-gateway-preview stripe">
-                  <div className="upgrade-gateway-preview-head">
-                    <strong>Stripe</strong>
-                    <span>{isVi ? "Thanh toán bảo mật, chuyển hướng tới trang Stripe chính thức." : "Secure checkout, redirect to official Stripe page."}</span>
-                  </div>
-                  <div className="upgrade-gateway-preview-rows">
-                    <div>
-                      <span>{isVi ? "Thẻ thanh toán" : "Card payment"}</span>
-                      <strong>Visa · Mastercard · JCB</strong>
+                {hasSelectedGateway && usingStripe ? (
+                  <div className="upgrade-gateway-preview stripe">
+                    <div className="upgrade-gateway-preview-head">
+                      <strong>Stripe</strong>
+                      <span>{isVi ? "Thanh toán bảo mật, chuyển hướng tới trang Stripe chính thức." : "Secure checkout, redirect to official Stripe page."}</span>
                     </div>
-                    <div>
-                      <span>{isVi ? "Bảo mật" : "Security"}</span>
-                      <strong>PCI DSS · 3D Secure</strong>
+                    <div className="upgrade-gateway-preview-rows">
+                      <div>
+                        <span>{isVi ? "Thẻ thanh toán" : "Card payment"}</span>
+                        <strong>Visa · Mastercard · JCB</strong>
+                      </div>
+                      <div>
+                        <span>{isVi ? "Bảo mật" : "Security"}</span>
+                        <strong>PCI DSS · 3D Secure</strong>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (hasSelectedGateway ? (
-                <>
-                  <div className="form-grid">
-                    <NextTextField
-                      label={isVi ? "Tên chủ thẻ" : "Card holder"}
-                      value={cardForm.cardHolder}
-                      onChange={(value) => actions.updateCardField("cardHolder", value)}
-                      placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
-                    />
-                    <NextTextField
-                      label={isVi ? "Số thẻ" : "Card number"}
-                      value={cardForm.cardNumber}
-                      onChange={(value) => actions.updateCardField("cardNumber", value)}
-                      placeholder="4242 4242 4242 4242"
-                    />
-                  </div>
+                ) : (hasSelectedGateway ? (
+                  <>
+                    <div className="form-grid">
+                      <NextTextField
+                        label={isVi ? "Tên chủ thẻ" : "Card holder"}
+                        value={cardForm.cardHolder}
+                        onChange={(value) => actions.updateCardField("cardHolder", value)}
+                        placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
+                      />
+                      <NextTextField
+                        label={isVi ? "Số thẻ" : "Card number"}
+                        value={cardForm.cardNumber}
+                        onChange={(value) => actions.updateCardField("cardNumber", value)}
+                        placeholder="4242 4242 4242 4242"
+                      />
+                    </div>
 
-                  <div className="form-grid">
-                    <NextTextField
-                      label={isVi ? "Ngày hết hạn" : "Expiry"}
-                      value={cardForm.expiry}
-                      onChange={(value) => actions.updateCardField("expiry", value)}
-                      placeholder="MM/YY"
-                    />
-                    <NextTextField
-                      label="CVC"
-                      value={cardForm.cvc}
-                      onChange={(value) => actions.updateCardField("cvc", value)}
-                      placeholder="123"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="upgrade-gateway-placeholder">
-                  {isVi
-                    ? "Vui lòng chọn cổng thanh toán để hiển thị thông tin và form thanh toán tương ứng."
-                    : "Please select a payment gateway to show the corresponding payment details and form."}
-                </div>
-              ))}
-
-              <div className="upgrade-payment-actions">
-                {usingStripe ? (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
-                    onClick={actions.startStripeCheckout}
-                  >
-                    {!canPurchasePro
-                      ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                      : (processing
-                        ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
-                        : (renewalMode
-                          ? (isVi ? "Thanh toán gia hạn Pro qua Stripe" : "Pay via Stripe to extend Pro")
-                          : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")))}
-                  </button>
+                    <div className="form-grid">
+                      <NextTextField
+                        label={isVi ? "Ngày hết hạn" : "Expiry"}
+                        value={cardForm.expiry}
+                        onChange={(value) => actions.updateCardField("expiry", value)}
+                        placeholder="MM/YY"
+                      />
+                      <NextTextField
+                        label="CVC"
+                        value={cardForm.cvc}
+                        onChange={(value) => actions.updateCardField("cvc", value)}
+                        placeholder="123"
+                      />
+                    </div>
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
-                    onClick={actions.submitUpgrade}
-                  >
-                    {!canPurchasePro
-                      ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                      : (processing
-                        ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...")
-                        : (renewalMode
-                          ? (isVi ? "Thanh toán để gia hạn Pro" : "Pay to extend Pro")
-                          : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro")))}
-                  </button>
-                )}
+                  <div className="upgrade-gateway-placeholder">
+                    {isVi
+                      ? "Vui lòng chọn cổng thanh toán để hiển thị thông tin và form thanh toán tương ứng."
+                      : "Please select a payment gateway to show the corresponding payment details and form."}
+                  </div>
+                ))}
 
-                {usingStripe && canPurchasePro && hasSelectedGateway ? (
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    disabled={processing || loadingPlan}
-                    onClick={() => actions.setPaymentGateway("internal")}
-                  >
-                    {processing
-                      ? (isVi ? "Đang xử lý..." : "Processing...")
-                      : (isVi ? "Sử dụng form nội bộ" : "Use internal form")}
-                  </button>
-                ) : null}
-              </div>
+                <div className="upgrade-payment-actions">
+                  {usingStripe ? (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
+                      onClick={actions.startStripeCheckout}
+                    >
+                      {!canPurchasePro
+                        ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                        : (processing
+                          ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
+                          : (renewalMode
+                            ? (isVi ? "Thanh toán gia hạn Pro qua Stripe" : "Pay via Stripe to extend Pro")
+                            : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")))}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
+                      onClick={actions.submitUpgrade}
+                    >
+                      {!canPurchasePro
+                        ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                        : (processing
+                          ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...")
+                          : (renewalMode
+                            ? (isVi ? "Thanh toán để gia hạn Pro" : "Pay to extend Pro")
+                            : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro")))}
+                    </button>
+                  )}
 
-              {message ? <div className="upgrade-feedback-banner">{message}</div> : null}
-            </section>
+                  {usingStripe && canPurchasePro && hasSelectedGateway ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={processing || loadingPlan}
+                      onClick={() => actions.setPaymentGateway("internal")}
+                    >
+                      {processing
+                        ? (isVi ? "Đang xử lý..." : "Processing...")
+                        : (isVi ? "Sử dụng form nội bộ" : "Use internal form")}
+                    </button>
+                  ) : null}
+                </div>
+
+                {message ? <div className="upgrade-feedback-banner">{message}</div> : null}
+              </section>
+            ) : null}
 
             <article className="upgrade-info-card upgrade-note-card">
               <h3 className="subsection-title">{isVi ? "Ghi chú thanh toán" : "Billing notes"}</h3>
