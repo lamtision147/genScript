@@ -257,6 +257,19 @@ html[data-theme="dark"] .header {
   margin-left: 0;
 }
 
+html[data-theme="dark"] .header-language-switch {
+  border-color: rgba(255, 178, 196, 0.24);
+  background: rgba(37, 28, 34, 0.9);
+}
+
+html[data-theme="dark"] .header-language-switch label {
+  color: #e8d5db;
+}
+
+html[data-theme="dark"] .header-language-switch select {
+  color: #ffe3ea;
+}
+
 .header-lang-controls {
   display: inline-flex;
   align-items: center;
@@ -321,6 +334,12 @@ html[data-theme="dark"] .theme-toggle {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
 }
 
+html[data-theme="dark"] .user-actions {
+  border-color: rgba(255, 178, 196, 0.24);
+  background: rgba(37, 28, 34, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .user-actions .nav-link {
   min-height: 28px;
   padding: 4px 11px;
@@ -331,6 +350,10 @@ html[data-theme="dark"] .theme-toggle {
   font-size: 10px;
   color: rgba(74, 48, 24, 0.88);
   white-space: nowrap;
+}
+
+html[data-theme="dark"] .user-actions .nav-link {
+  color: #f4d7df;
 }
 
 .user-actions .nav-link:hover {
@@ -345,6 +368,13 @@ html[data-theme="dark"] .theme-toggle {
   color: #602f08;
   border-color: rgba(171, 90, 22, 0.22);
   box-shadow: 0 4px 12px rgba(160, 82, 18, 0.14);
+}
+
+html[data-theme="dark"] .user-actions .nav-link.active {
+  background: linear-gradient(180deg, rgba(255, 97, 131, 0.34), rgba(99, 38, 57, 0.9));
+  color: #ffeaf0;
+  border-color: rgba(255, 159, 183, 0.32);
+  box-shadow: 0 7px 18px rgba(191, 43, 79, 0.24);
 }
 
 /* hero section: title + subtitle with more breathing room */
@@ -473,6 +503,10 @@ html[data-theme="dark"] .brand-signature {
   font-family: "Be Vietnam Pro", "Noto Sans", "Manrope", "Segoe UI", Roboto, sans-serif;
 }
 
+html[data-theme="dark"] .header .page-title {
+  color: #ffe6ec;
+}
+
 .header .page-title.profile-header-title {
   font-family: var(--font-vi-display), var(--font-vi), "Noto Sans", "Segoe UI", Roboto, sans-serif;
   font-weight: 600;
@@ -495,6 +529,10 @@ html[data-theme="dark"] .brand-signature {
   font-weight: 400;
   letter-spacing: 0.005em;
   font-family: "Be Vietnam Pro", "Noto Sans", "Manrope", "Segoe UI", Roboto, sans-serif;
+}
+
+html[data-theme="dark"] .header .page-subtitle {
+  color: rgba(245, 225, 232, 0.76);
 }
 
 .page-subtitle,
@@ -538,6 +576,10 @@ html[data-theme="dark"] .brand-signature {
   color: #2a180d;
 }
 
+html[data-theme="dark"] .header-mini-panel strong {
+  color: #f4d9e0;
+}
+
 .header-mini-panel span:last-child {
   display: none;
 }
@@ -560,6 +602,12 @@ html[data-theme="dark"] .brand-signature {
   max-width: 170px;
 }
 
+html[data-theme="dark"] .user-badge {
+  background: linear-gradient(180deg, rgba(54, 40, 47, 0.95), rgba(35, 27, 33, 0.92));
+  border-color: rgba(255, 178, 196, 0.22);
+  color: #f4dce2;
+}
+
 .user-badge span:last-child {
   max-width: 120px;
   white-space: nowrap;
@@ -573,6 +621,11 @@ html[data-theme="dark"] .brand-signature {
   border-radius: 999px;
   background: #1f9d5a;
   box-shadow: 0 0 0 3px rgba(31, 157, 90, 0.15);
+}
+
+html[data-theme="dark"] .user-badge-dot {
+  background: #35c37d;
+  box-shadow: 0 0 0 3px rgba(53, 195, 125, 0.25);
 }
 
 .lang-switch span {
@@ -605,6 +658,14 @@ html[data-theme="dark"] .brand-signature {
   box-shadow: var(--shadow-soft);
 }
 
+html[data-theme="dark"] .segmented button,
+html[data-theme="dark"] .ghost-button,
+html[data-theme="dark"] .secondary-button {
+  color: #f4dce2;
+  background: linear-gradient(180deg, rgba(52, 40, 47, 0.95), rgba(35, 27, 33, 0.94));
+  border-color: rgba(255, 178, 196, 0.18);
+}
+
 .ghost-button.active,
 .secondary-button.active,
 .nav-link.active {
@@ -612,6 +673,15 @@ html[data-theme="dark"] .brand-signature {
   color: #6f3304;
   border-color: rgba(185, 92, 16, 0.26);
   box-shadow: 0 10px 22px rgba(185, 92, 16, 0.16);
+}
+
+html[data-theme="dark"] .ghost-button.active,
+html[data-theme="dark"] .secondary-button.active,
+html[data-theme="dark"] .nav-link.active {
+  background: linear-gradient(180deg, rgba(255, 97, 131, 0.36), rgba(88, 34, 52, 0.92));
+  color: #ffeaf0;
+  border-color: rgba(255, 159, 183, 0.32);
+  box-shadow: 0 10px 22px rgba(191, 43, 79, 0.24);
 }
 
 .segmented button.active,
@@ -636,6 +706,12 @@ html[data-theme="dark"] .brand-signature {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+html[data-theme="dark"] .primary-button {
+  background: linear-gradient(135deg, #ff5e7f, #d01f45);
+  color: #fff3f6;
+  box-shadow: 0 14px 30px rgba(191, 43, 79, 0.34);
 }
 
 .primary-button::before {
@@ -747,6 +823,12 @@ a:focus-visible {
   transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
 }
 
+html[data-theme="dark"] .panel {
+  background: linear-gradient(180deg, rgba(30, 23, 30, 0.95), rgba(24, 18, 25, 0.93));
+  border-color: rgba(255, 178, 196, 0.16);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+}
+
 .panel:hover {
   transform: translateY(-2px);
   box-shadow: 0 18px 38px rgba(31, 18, 8, 0.11);
@@ -765,6 +847,11 @@ a:focus-visible {
   flex-direction: column;
   gap: 13px;
   transition: transform var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard);
+}
+
+html[data-theme="dark"] .panel-section {
+  background: linear-gradient(180deg, rgba(38, 29, 36, 0.95), rgba(30, 24, 31, 0.95));
+  border-color: rgba(255, 178, 196, 0.16);
 }
 
 .panel-section:hover {
