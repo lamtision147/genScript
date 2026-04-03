@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
   <defs>
     <linearGradient id="logo-bg" x1="7" y1="6" x2="58" y2="59" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFE8C5" />
-      <stop offset="0.5" stop-color="#F5A95A" />
-      <stop offset="1" stop-color="#BE5B17" />
+      <stop stop-color="#FFD8DC" />
+      <stop offset="0.5" stop-color="#F04A59" />
+      <stop offset="1" stop-color="#B5122B" />
     </linearGradient>
     <linearGradient id="logo-gloss" x1="14" y1="12" x2="42" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="white" stop-opacity="0.58" />
+      <stop stop-color="white" stop-opacity="0.56" />
       <stop offset="1" stop-color="white" stop-opacity="0" />
     </linearGradient>
   </defs>
 
   <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#logo-bg)" />
-  <rect x="3.5" y="3.5" width="57" height="57" rx="16.5" stroke="rgba(255,255,255,0.45)" />
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16.5" stroke="rgba(255,255,255,0.42)" />
 
   <path
     d="M16 24.2C16 19.7 19.7 16 24.2 16H43C45 16 46.6 17.6 46.6 19.6C46.6 21.6 45 23.2 43 23.2H24.4C23.3 23.2 22.4 24.1 22.4 25.2C22.4 26.3 23.3 27.2 24.4 27.2H36.4C42 27.2 46.6 31.8 46.6 37.4C46.6 43 42 47.6 36.4 47.6H21.6C19.6 47.6 18 46 18 44C18 42 19.6 40.4 21.6 40.4H36.2C37.8 40.4 39.2 39 39.2 37.4C39.2 35.8 37.8 34.4 36.2 34.4H24.2C19.7 34.4 16 30.7 16 26.2V24.2Z"
@@ -21,7 +21,7 @@
   />
   <path
     d="M47.2 39.2C47.2 43.8 43.4 47.6 38.8 47.6H21.2C19.3 47.6 17.8 46.1 17.8 44.2C17.8 42.3 19.3 40.8 21.2 40.8H38.6C39.9 40.8 41 39.7 41 38.4C41 37.1 39.9 36 38.6 36H27.6C22 36 17.4 31.4 17.4 25.8C17.4 20.2 22 15.6 27.6 15.6H42.4C44.3 15.6 45.8 17.1 45.8 19C45.8 20.9 44.3 22.4 42.4 22.4H27.8C26.2 22.4 24.8 23.8 24.8 25.4C24.8 27 26.2 28.4 27.8 28.4H38.8C43.4 28.4 47.2 32.2 47.2 36.8V39.2Z"
-    fill="#6E340E"
+    fill="#7A1023"
     fill-opacity="0.78"
   />
 

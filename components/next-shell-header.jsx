@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { routes } from "@/lib/routes";
 import { LANGUAGE_OPTIONS, getCopy } from "@/lib/i18n";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 export default function NextShellHeader({
   eyebrow = "SellerScript",
@@ -27,6 +28,7 @@ export default function NextShellHeader({
   const copy = getCopy(language);
   const isAdminUser = Boolean(user?.isAdmin);
   const userLabel = String(user?.name || user?.email || "").trim();
+  const { isDark, toggleTheme } = useThemePreference();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -79,15 +81,28 @@ export default function NextShellHeader({
       </div>
 
       <div className="header-lang-row">
-        <div className="header-language-switch">
-          <label htmlFor="header-language">{copy.common.language}</label>
-          <select
-            id="header-language"
-            value={language}
-            onChange={(event) => onLanguageChange?.(event.target.value)}
+        <div className="header-lang-controls">
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-label={isDark ? (language === "vi" ? "Chuyển sang giao diện sáng" : "Switch to light mode") : (language === "vi" ? "Chuyển sang giao diện tối" : "Switch to dark mode")}
+            title={isDark ? (language === "vi" ? "Light mode" : "Light mode") : (language === "vi" ? "Dark mode" : "Dark mode")}
+            onClick={toggleTheme}
           >
-            {LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+            <span aria-hidden="true">{isDark ? "☀" : "🌙"}</span>
+            <span>{isDark ? (language === "vi" ? "Sáng" : "Light") : (language === "vi" ? "Tối" : "Dark")}</span>
+          </button>
+
+          <div className="header-language-switch">
+            <label htmlFor="header-language">{copy.common.language}</label>
+            <select
+              id="header-language"
+              value={language}
+              onChange={(event) => onLanguageChange?.(event.target.value)}
+            >
+              {LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
