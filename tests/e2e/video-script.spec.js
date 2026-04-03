@@ -124,7 +124,9 @@ test.describe("Video Script Page", () => {
       const styleLabelByIndex = [
         "Nỗi đau trực diện",
         "So sánh trước/sau",
-        "Tuyên bố ngược số đông"
+        "Tuyên bố ngược số đông",
+        "Storytelling ngắn",
+        "Social-proof tin cậy"
       ];
 
       const variants = styles.map((style, index) => ({
@@ -180,6 +182,9 @@ test.describe("Video Script Page", () => {
 
     await expect(page.getByRole("button", { name: "Tuyên bố ngược số đông" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Nỗi đau trực diện" })).toBeVisible();
+
+    await page.getByLabel("Số bản nội dung").selectOption("5");
+    await expect(page.getByLabel("Phong cách nội dung bản 5")).toBeVisible();
 
     await page.getByRole("button", { name: "Nỗi đau trực diện" }).click();
     await expect(page.getByText("Hook 2")).toBeVisible();

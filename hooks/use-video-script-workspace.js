@@ -20,12 +20,12 @@ import { normalizeTextForCategoryCheck } from "@/lib/category-inference";
 import { enforceGroupScopedCategory } from "@/lib/product-workspace-helpers";
 
 const MAX_IMAGE_COUNT = 4;
-const VIDEO_VARIANT_STYLE_SEQUENCE = [0, 1, 2];
+const VIDEO_VARIANT_STYLE_SEQUENCE = [0, 1, 2, 3, 4];
 
 function clampOpeningStyle(value, fallback = 0) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(0, Math.min(2, Math.floor(parsed)));
+  return Math.max(0, Math.min(4, Math.floor(parsed)));
 }
 
 function isSameOpeningStyleList(left = [], right = []) {
@@ -46,7 +46,7 @@ function buildVariantOpeningStyleList(count = 1, seedStyle = 0, existing = []) {
   for (let index = 0; index < size; index += 1) {
     const existingStyle = Number(existing?.[index]);
     if (size > 1) {
-      if (Number.isFinite(existingStyle) && existingStyle >= 0 && existingStyle <= 2) {
+      if (Number.isFinite(existingStyle) && existingStyle >= 0 && existingStyle <= 4) {
         next.push(clampOpeningStyle(existingStyle, seed));
       } else {
         next.push(rotation[index % rotation.length] ?? seed);
@@ -62,8 +62,20 @@ function buildVariantOpeningStyleList(count = 1, seedStyle = 0, existing = []) {
 function getOpeningStyleLabel(language = "vi", openingStyle = 0) {
   const isVi = language === "vi";
   const labels = isVi
-    ? ["Nỗi đau trực diện", "So sánh trước/sau", "Tuyên bố ngược số đông"]
-    : ["Direct pain-point", "Before/after", "Contrarian statement"];
+    ? [
+      "Nỗi đau trực diện",
+      "So sánh trước/sau",
+      "Tuyên bố ngược số đông",
+      "Storytelling ngắn",
+      "Social-proof tin cậy"
+    ]
+    : [
+      "Direct pain-point",
+      "Before/after",
+      "Contrarian statement",
+      "Short storytelling",
+      "Social-proof"
+    ];
   return labels[clampOpeningStyle(openingStyle, 0)] || labels[0];
 }
 
@@ -199,7 +211,7 @@ function getDefaultVideoForm(category = "fashion") {
   return {
     category,
     channel: defaults.channel,
-    openingStyle: Math.max(0, Math.min(2, Number(defaults.tone) || 0)),
+    openingStyle: Math.max(0, Math.min(4, Number(defaults.tone) || 0)),
     moodVi,
     moodEn
   };
@@ -403,7 +415,7 @@ function buildVideoSuggestedTemplate({ category = "other", suggestion = null, la
     highlights: mergedHighlights.join("\n") || (isVi ? "Điểm mạnh rõ\nDễ dùng\nHiệu quả thực tế" : "Clear strengths\nEasy to use\nPractical outcomes"),
     proofPoint,
     mood: mapSuggestMoodLabel(langKey, suggestion?.mood),
-    openingStyle: Number.isFinite(Number(suggestion?.tone)) ? Math.max(0, Math.min(2, Number(suggestion.tone))) : 1,
+    openingStyle: Number.isFinite(Number(suggestion?.tone)) ? Math.max(0, Math.min(4, Number(suggestion.tone))) : 1,
     durationSec: 45,
     scriptMode: "standard",
     priceSegment: "mid"
@@ -566,12 +578,16 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       ? [
           "Nỗi đau trực diện",
           "So sánh trước/sau",
-          "Tuyên bố ngược số đông"
+          "Tuyên bố ngược số đông",
+          "Storytelling ngắn",
+          "Social-proof tin cậy"
         ]
       : [
           "Direct pain-point hook",
           "Before/after hook",
-          "Contrarian hook"
+          "Contrarian hook",
+          "Short storytelling hook",
+          "Social-proof hook"
         ];
   }, [language]);
 
@@ -609,7 +625,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
     const variants = groupItems.map((entry, index) => {
       const variant = entry?.result || {};
-      const styleKey = clampOpeningStyle(variant?.openingStyle, Number(entry?.form?.openingStyle ?? index % 3));
+      const styleKey = clampOpeningStyle(variant?.openingStyle, Number(entry?.form?.openingStyle ?? index % 5));
       const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
       return {
         ...variant,
@@ -686,7 +702,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           ? itemResult.variants
           : (itemResult ? [itemResult] : []);
       const normalizedVariants = variants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
         const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
         return {
           ...variant,
@@ -709,7 +725,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, normalizedVariants.length || 1));
         setVariantOpeningStyles(
           normalizedVariants.length
-            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
             : [0]
         );
         setForm((prev) => ({
@@ -872,11 +888,11 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       setForm((prev) => ({
         ...prev,
         channel,
-        openingStyle: Math.max(0, Math.min(2, Number(styleDefaults.tone) || defaults.openingStyle)),
+        openingStyle: Math.max(0, Math.min(4, Number(styleDefaults.tone) || defaults.openingStyle)),
         mood
       }));
       setVariantOpeningStyles((prev) => {
-        const nextStyle = Math.max(0, Math.min(2, Number(styleDefaults.tone) || defaults.openingStyle));
+        const nextStyle = Math.max(0, Math.min(4, Number(styleDefaults.tone) || defaults.openingStyle));
         if (!Array.isArray(prev) || !prev.length) return [nextStyle];
         const next = [...prev];
         next[0] = nextStyle;
@@ -976,9 +992,9 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           ? {}
           : {
               channel: Number.isFinite(Number(suggested.channel)) ? Number(suggested.channel) : defaults.channel,
-              openingStyle: Number.isFinite(Number(suggested.tone))
-                ? Math.max(0, Math.min(2, Number(suggested.tone)))
-                : defaults.openingStyle,
+          openingStyle: Number.isFinite(Number(suggested.tone))
+            ? Math.max(0, Math.min(4, Number(suggested.tone)))
+            : defaults.openingStyle,
               mood: mapSuggestMoodLabel(language, suggested.mood),
               targetCustomer: cleanText(suggested.targetCustomer || "") || prev.targetCustomer,
               painPoint: cleanText(suggested.shortDescription || "") || prev.painPoint,
@@ -988,7 +1004,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       }));
       setVariantOpeningStyles((prev) => {
         const inferredStyle = Number.isFinite(Number(suggested?.tone))
-          ? Math.max(0, Math.min(2, Number(suggested.tone)))
+          ? Math.max(0, Math.min(4, Number(suggested.tone)))
           : defaults.openingStyle;
         if (!Array.isArray(prev) || !prev.length) return [inferredStyle];
         const next = [...prev];
@@ -1089,7 +1105,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ? data.variants
         : (Array.isArray(responseScript?.variants) && responseScript.variants.length ? responseScript.variants : (responseScript ? [responseScript] : []));
       const normalizedVariants = responseVariants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
         const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
         return {
           ...variant,
@@ -1112,7 +1128,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       } : null);
       setVariantOpeningStyles(
         normalizedVariants.length
-          ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+          ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
           : [clampOpeningStyle(form.openingStyle, 0)]
       );
       if (data?.historyId) {
@@ -1125,7 +1141,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
         setVariantOpeningStyles(
           Array.isArray(hydrated?.variants) && hydrated.variants.length
-            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
             : [clampOpeningStyle(form.openingStyle, 0)]
         );
         setActiveHistoryId(hydrated?.historyId || data?.historyId || null);
@@ -1216,7 +1232,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ? updatedResult.variants
         : (updatedResult ? [updatedResult] : []);
       const normalizedUpdatedVariants = updatedVariants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
         const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
         return {
           ...variant,
@@ -1239,7 +1255,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       setVariantCount(Math.max(1, normalizedUpdatedVariants.length || 1));
       setVariantOpeningStyles(
         normalizedUpdatedVariants.length
-          ? normalizedUpdatedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+          ? normalizedUpdatedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
           : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
       );
       setForm((prev) => ({
@@ -1257,7 +1273,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
         setVariantOpeningStyles(
           Array.isArray(hydrated?.variants) && hydrated.variants.length
-            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
             : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
         );
         setActiveHistoryId(hydrated?.historyId || nextHistoryId || null);
@@ -1321,7 +1337,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           ? itemResult.variants
           : (itemResult ? [itemResult] : []);
         const normalizedVariants = variants.map((variant, index) => {
-          const styleKey = clampOpeningStyle(variant?.openingStyle, index % 3);
+          const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
           const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
           return {
             ...variant,
@@ -1344,7 +1360,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, normalizedVariants.length || 1));
         setVariantOpeningStyles(
           normalizedVariants.length
-            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
             : [clampOpeningStyle(item?.form?.openingStyle, 0)]
         );
         setForm((prev) => ({
@@ -1367,7 +1383,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
               setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
               setVariantOpeningStyles(
                 Array.isArray(hydrated?.variants) && hydrated.variants.length
-                  ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 3))
+                  ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
                   : [clampOpeningStyle(item?.form?.openingStyle, 0)]
               );
             })
@@ -1379,3 +1395,4 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     }
   };
 }
+

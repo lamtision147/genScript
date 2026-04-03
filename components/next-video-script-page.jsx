@@ -134,14 +134,14 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today (including Improve).`);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
   const resolvedVariantOpeningStyles = (() => {
-    const sequence = [0, 1, 2];
-    const seed = Number.isFinite(Number(form?.openingStyle)) ? Math.max(0, Math.min(2, Number(form.openingStyle))) : 0;
+    const sequence = [0, 1, 2, 3, 4];
+    const seed = Number.isFinite(Number(form?.openingStyle)) ? Math.max(0, Math.min(4, Number(form.openingStyle))) : 0;
     const rotation = [seed, ...sequence.filter((item) => item !== seed)];
     const next = [];
     const size = isProPlan ? normalizedVariantCount : 1;
     for (let index = 0; index < size; index += 1) {
       const parsed = Number(variantOpeningStyles?.[index]);
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 2) {
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 4) {
         next.push(parsed);
       } else if (size > 1) {
         next.push(rotation[index % rotation.length] || seed);
@@ -157,8 +157,8 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     ? result.variants.map((variant, index) => ({
       ...buildResultAsProductLike(variant),
       historyId: variant?.historyId || result?.historyId || null,
-      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || (openingStyleOptions[Number(variant?.openingStyle ?? index % 3)] || `${isVi ? "Bản" : "Variant"} ${index + 1}`),
-      openingStyle: Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : (index % 3),
+      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || (openingStyleOptions[Number(variant?.openingStyle ?? index % 5)] || `${isVi ? "Bản" : "Variant"} ${index + 1}`),
+      openingStyle: Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : (index % 5),
       variantGroupId: variant?.variantGroupId || result?.variantGroupId || ""
     }))
     : (outputData ? [{
