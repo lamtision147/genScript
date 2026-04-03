@@ -949,6 +949,19 @@ html[data-theme="dark"] .panel-section {
   box-shadow: 0 8px 18px rgba(185, 92, 16, 0.14);
 }
 
+html[data-theme="dark"] .variant-toggle {
+  color: #f4dce2;
+  border-color: rgba(255, 178, 196, 0.2);
+  background: linear-gradient(180deg, rgba(52, 40, 47, 0.95), rgba(35, 27, 33, 0.94));
+}
+
+html[data-theme="dark"] .variant-toggle.active {
+  border-color: rgba(255, 159, 183, 0.35);
+  background: linear-gradient(180deg, rgba(255, 97, 131, 0.4), rgba(88, 34, 52, 0.92));
+  color: #ffeaf0;
+  box-shadow: 0 8px 18px rgba(191, 43, 79, 0.28);
+}
+
 @media (max-width: 980px) {
   .header-lang-controls {
     width: 100%;
@@ -975,6 +988,11 @@ html[data-theme="dark"] .panel-section {
   font-family: var(--sans);
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+html[data-theme="dark"] .content-title,
+html[data-theme="dark"] .profile-settings-title {
+  color: #f9e7ed;
 }
 
 .profile-settings-title {
@@ -1642,6 +1660,19 @@ html[data-theme="dark"] .panel-section {
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
+html[data-theme="dark"] .field input,
+html[data-theme="dark"] .field select,
+html[data-theme="dark"] .field textarea {
+  border-color: rgba(255, 178, 196, 0.2);
+  background: linear-gradient(180deg, rgba(50, 38, 45, 0.94), rgba(34, 27, 33, 0.95));
+  color: #f7e5ea;
+}
+
+html[data-theme="dark"] .field input::placeholder,
+html[data-theme="dark"] .field textarea::placeholder {
+  color: rgba(231, 200, 210, 0.68);
+}
+
 .field input:focus,
 .field select:focus,
 .field textarea:focus {
@@ -1658,6 +1689,16 @@ html[data-theme="dark"] .panel-section {
   cursor: pointer;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 242, 234, 0.96));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+html[data-theme="dark"] .dropdown-select {
+  background: linear-gradient(180deg, rgba(50, 38, 45, 0.94), rgba(34, 27, 33, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .select-wrap::after {
+  border-right-color: rgba(248, 220, 229, 0.78);
+  border-bottom-color: rgba(248, 220, 229, 0.78);
 }
 
 .dropdown-select:focus {
@@ -2367,6 +2408,12 @@ html[data-theme="dark"] .panel-section {
   animation: fadeSlideUp 360ms var(--ease-standard) both;
 }
 
+html[data-theme="dark"] .result-readability-hint {
+  background: rgba(94, 41, 58, 0.3);
+  border-color: rgba(255, 159, 183, 0.26);
+  color: #f7d9e1;
+}
+
 .result-readability-hint + .result-readability-hint {
   margin-top: 6px;
 }
@@ -2384,10 +2431,21 @@ html[data-theme="dark"] .panel-section {
   transition: transform var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
 }
 
+html[data-theme="dark"] .textarea-block {
+  border-color: rgba(255, 178, 196, 0.16);
+  background: rgba(45, 35, 43, 0.86);
+  color: #f7e5ea;
+}
+
 .textarea-block:hover {
   transform: translateY(-1px);
   border-color: rgba(185, 92, 16, 0.2);
   background: rgba(255, 255, 255, 0.86);
+}
+
+html[data-theme="dark"] .textarea-block:hover {
+  border-color: rgba(255, 159, 183, 0.3);
+  background: rgba(55, 43, 51, 0.92);
 }
 
 .output-paragraph-1 {
@@ -2819,6 +2877,11 @@ html[data-theme="dark"] .panel-section {
   transition: transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
 }
 
+html[data-theme="dark"] .hashtag-chip {
+  background: linear-gradient(180deg, rgba(255, 97, 131, 0.26), rgba(88, 34, 52, 0.8));
+  color: #ffdbe3;
+}
+
 .output-edit-field textarea {
   min-height: 360px;
   resize: vertical;
@@ -2828,6 +2891,13 @@ html[data-theme="dark"] .panel-section {
 .output-edit-field textarea {
   background: linear-gradient(180deg, #fff, rgba(250, 245, 237, 0.98));
   border: 1px solid rgba(190, 104, 29, 0.24);
+}
+
+html[data-theme="dark"] .output-edit-field input,
+html[data-theme="dark"] .output-edit-field textarea {
+  background: linear-gradient(180deg, rgba(50, 38, 45, 0.94), rgba(34, 27, 33, 0.95));
+  border-color: rgba(255, 159, 183, 0.24);
+  color: #f8e7ec;
 }
 
 .output-save-hint {
@@ -3360,6 +3430,10 @@ html[data-theme="dark"] .panel-section {
 
 .history-item.active {
   background: rgba(255, 138, 31, 0.14);
+}
+
+html[data-theme="dark"] .history-item.active {
+  background: rgba(255, 97, 131, 0.24);
 }
 
 .history-item-main {
