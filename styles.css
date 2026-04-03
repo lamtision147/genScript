@@ -2946,6 +2946,41 @@ html[data-theme="dark"] .upgrade-price-card {
   font-size: 12px;
 }
 
+.upgrade-price-anchor {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.upgrade-old-price-prominent {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.upgrade-price-save-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(185, 92, 16, 0.24);
+  background: rgba(255, 218, 168, 0.64);
+  color: #7f3f09;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+html[data-theme="dark"] .upgrade-price-save-badge {
+  border-color: rgba(255, 159, 183, 0.34);
+  background: rgba(255, 97, 131, 0.28);
+  color: #ffe2ea;
+}
+
 .upgrade-price-value {
   margin: 0;
   font-size: 30px;

@@ -93,13 +93,17 @@ export default function NextUpgradePage() {
 
             <aside className="upgrade-price-card">
               <span className="upgrade-price-label">{isVi ? "Giá gói Pro" : "Pro pricing"}</span>
+              <p className="upgrade-price-anchor">
+                <span className="upgrade-old-price upgrade-old-price-prominent">{regularDisplay}</span>
+                <span className="upgrade-price-save-badge">{isVi ? "-50% tháng đầu" : "-50% first month"}</span>
+              </p>
               <p className="upgrade-price-value">{firstMonthDisplay}</p>
               <p className="upgrade-price-cycle">{isVi ? "tháng đầu tiên" : "first month"}</p>
-              <p className="upgrade-regular-price">{isVi ? "Từ tháng thứ 2: 249.000đ/tháng" : "From month 2: $10/month"}</p>
+              <p className="upgrade-regular-price">{isVi ? `Từ tháng thứ 2: ${regularDisplay}/tháng` : `From month 2: ${regularDisplay}/month`}</p>
               <div className="upgrade-discount-chip">
                 {isVi
-                  ? "Giá gốc 249.000đ, ưu đãi tháng đầu 50%"
-                  : "Regular price $10, first month 50% off"}
+                  ? `Giá gốc ${regularDisplay}, ưu đãi tháng đầu 50%`
+                  : `Regular price ${regularDisplay}, first month 50% off`}
               </div>
               <div className="upgrade-provider-chip">
                 {isVi ? "Cổng thanh toán" : "Payment provider"}: {paymentProvider === "stripe" ? "Stripe" : (isVi ? "Nội bộ (mock)" : "Internal (mock)")}
