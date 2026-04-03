@@ -3971,6 +3971,12 @@ html[data-theme="dark"] .profile-favorite-tab.active {
   box-shadow: var(--shadow-soft);
 }
 
+html[data-theme="dark"] .login-hero {
+  background: linear-gradient(180deg, rgba(36, 28, 35, 0.96), rgba(26, 20, 27, 0.95));
+  border-color: rgba(255, 178, 196, 0.16);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+}
+
 .login-title {
   font-size: 2.4rem;
 }
@@ -4005,9 +4011,21 @@ html[data-theme="dark"] .profile-favorite-tab.active {
   text-transform: none;
 }
 
+html[data-theme="dark"] .auth-step {
+  background: rgba(53, 40, 49, 0.82);
+  border-color: rgba(255, 178, 196, 0.2);
+  color: #d9c5cd;
+}
+
 .auth-step.active {
   background: rgba(255, 138, 31, 0.14);
   color: var(--accent-deep);
+}
+
+html[data-theme="dark"] .auth-step.active {
+  background: rgba(255, 97, 131, 0.26);
+  border-color: rgba(255, 159, 183, 0.3);
+  color: #ffe7ee;
 }
 
 .auth-message {
@@ -4016,6 +4034,12 @@ html[data-theme="dark"] .profile-favorite-tab.active {
   background: rgba(255, 138, 31, 0.08);
   color: var(--accent-deep);
   border: 1px solid rgba(255, 138, 31, 0.16);
+}
+
+html[data-theme="dark"] .auth-message {
+  background: rgba(255, 97, 131, 0.16);
+  border-color: rgba(255, 159, 183, 0.28);
+  color: #ffdbe4;
 }
 
 .auth-mode-note {
@@ -4038,6 +4062,11 @@ html[data-theme="dark"] .profile-favorite-tab.active {
   border-radius: 16px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.74);
+}
+
+html[data-theme="dark"] .login-feature-card {
+  border-color: rgba(255, 178, 196, 0.18);
+  background: rgba(45, 34, 42, 0.84);
 }
 
 .login-feature-card strong {
@@ -4089,6 +4118,11 @@ html[data-theme="dark"] .profile-favorite-tab.active {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+html[data-theme="dark"] .login-shell .login-card {
+  background: linear-gradient(180deg, rgba(36, 28, 35, 0.96), rgba(26, 20, 27, 0.95));
+  border-color: rgba(255, 178, 196, 0.16);
 }
 
 .history-item.active {

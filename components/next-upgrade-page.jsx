@@ -46,6 +46,7 @@ export default function NextUpgradePage() {
   const usingStripe = selectedGateway === "stripe";
   const isStripeAvailable = paymentProvider === "stripe";
   const hasSelectedGateway = Boolean(selectedGateway);
+  const isLoggedIn = Boolean(session?.id || session?.email);
   const planExpiresAtText = (() => {
     const raw = session?.planExpiresAt || planInfo?.expiresAt || "";
     if (!raw) return isVi ? "Chưa có" : "Not available";
@@ -57,7 +58,7 @@ export default function NextUpgradePage() {
     ? `${Math.max(0, Number(planInfo.remainingDays))} ${isVi ? "ngày" : "days"}`
     : "--";
   const renewalMode = Boolean(isPro && planInfo?.cancelAtPeriodEnd);
-  const canPurchasePro = Boolean(!isPro || renewalMode);
+  const canPurchasePro = Boolean(isLoggedIn && (!isPro || renewalMode));
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const proPerks = isVi
     ? [
@@ -169,36 +170,43 @@ export default function NextUpgradePage() {
 
             <article className="upgrade-info-card">
               <h3 className="subsection-title">{isVi ? "Trạng thái tài khoản" : "Account status"}</h3>
+              {!isLoggedIn ? (
+                <div className="history-empty">
+                  {isVi
+                    ? "Vui lòng đăng nhập để xem trạng thái tài khoản và thông tin gói Pro của bạn."
+                    : "Please log in to view your account status and Pro plan details."}
+                </div>
+              ) : null}
               <div className="upgrade-limit-rows">
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Gói hiện tại" : "Current plan"}</span>
-                  <strong>{isPro ? "PRO" : "FREE"}</strong>
+                  <strong>{isLoggedIn ? (isPro ? "PRO" : "FREE") : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Yêu thích" : "Favorites"}</span>
-                  <strong>{favoriteLimitText}</strong>
+                  <strong>{isLoggedIn ? favoriteLimitText : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Lịch sử" : "History"}</span>
-                  <strong>{historyLimitText}</strong>
+                  <strong>{isLoggedIn ? historyLimitText : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Generate/ngày (Nội dung sản phẩm)" : "Daily generate (Product)"}</span>
-                  <strong>{isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5"}</strong>
+                  <strong>{isLoggedIn ? (isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5") : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Generate/ngày (Kịch bản video)" : "Daily generate (Video)"}</span>
-                  <strong>{isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5"}</strong>
+                  <strong>{isLoggedIn ? (isPro ? (isVi ? "Không giới hạn" : "Unlimited") : "5") : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Hiệu lực gói Pro đến" : "Pro valid until"}</span>
-                  <strong>{isPro ? planExpiresAtText : (isVi ? "Không áp dụng" : "N/A")}</strong>
+                  <strong>{isLoggedIn ? (isPro ? planExpiresAtText : (isVi ? "Không áp dụng" : "N/A")) : "--"}</strong>
                 </div>
                 <div className="upgrade-limit-row">
                   <span>{isVi ? "Thời gian còn lại" : "Remaining time"}</span>
-                  <strong>{isPro ? remainingDaysText : (isVi ? "Không áp dụng" : "N/A")}</strong>
+                  <strong>{isLoggedIn ? (isPro ? remainingDaysText : (isVi ? "Không áp dụng" : "N/A")) : "--"}</strong>
                 </div>
-                {isPro && planInfo?.cancelAtPeriodEnd ? (
+                {isLoggedIn && isPro && planInfo?.cancelAtPeriodEnd ? (
                   <div className="upgrade-limit-row">
                     <span>{isVi ? "Trạng thái hủy" : "Cancellation status"}</span>
                     <strong>{isVi ? "Đã hủy, giữ Pro tới ngày hết hạn" : "Cancelled, Pro remains until expiry"}</strong>
@@ -206,7 +214,11 @@ export default function NextUpgradePage() {
                 ) : null}
               </div>
 
-              {isPro ? (
+              {!isLoggedIn ? (
+                <div className="upgrade-actions-stack">
+                  <a className="primary-button" href={routes.login}>{isVi ? "Đăng nhập để tiếp tục" : "Log in to continue"}</a>
+                </div>
+              ) : isPro ? (
                 <div className="upgrade-actions-stack">
                   {!planInfo?.cancelAtPeriodEnd ? (
                     <button
