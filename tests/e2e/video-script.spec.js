@@ -59,7 +59,7 @@ test.describe("Video Script Page", () => {
     await page.getByRole("button", { name: "Áp dụng template ngành" }).click();
     await page.getByLabel("Nỗi đau chính của người xem").fill("Xay đồ ăn dặm mất thời gian, rửa máy cồng kềnh");
     await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Nhỏ gọn\nXay nhanh\nDễ vệ sinh");
-    await page.getByLabel("Bằng chứng chính").fill("Test 7 ngày, mỗi lần xay chỉ mất khoảng 30 giây");
+    await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 7 ngày, mỗi lần xay chỉ mất khoảng 30 giây");
     await page.getByLabel("Mốc thời lượng").selectOption("45");
     await page.getByLabel("Chế độ kịch bản").selectOption("teleprompter");
 
@@ -174,7 +174,7 @@ test.describe("Video Script Page", () => {
     await page.getByLabel("Tên sản phẩm").fill("Mic mini review");
     await page.getByLabel("Nỗi đau chính của người xem").fill("Ghi âm dở khi quay ngoài trời");
     await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Lọc ồn tốt\nNhỏ gọn\nKết nối nhanh");
-    await page.getByLabel("Bằng chứng chính").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
+    await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
 
     await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
 

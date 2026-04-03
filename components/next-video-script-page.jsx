@@ -489,6 +489,13 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
               placeholder={isVi ? "Ví dụ: Mẹ bỉm bận rộn cần tiết kiệm thời gian" : "Example: Busy moms who need quick daily convenience"}
             />
 
+            <NextTextField
+              label={isVi ? "Kết quả/Minh chứng thực tế" : "Real result / proof"}
+              value={form.proofPoint}
+              onChange={(value) => actions.setField("proofPoint", value)}
+              placeholder={isVi ? "Ví dụ: Test 7 ngày, da đều màu hơn khi quay camera thường" : "Example: After 7 days, skin looked more even on normal camera"}
+            />
+
             <NextTextareaField
               label={isVi ? "Nỗi đau chính của người xem" : "Core viewer pain point"}
               value={form.painPoint}
@@ -501,13 +508,6 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
               value={form.highlights}
               onChange={(value) => actions.setField("highlights", value)}
               placeholder={isVi ? "Nhỏ gọn\nDễ dùng\nHiệu quả thấy nhanh" : "Compact\nEasy to use\nFast visible result"}
-            />
-
-            <NextTextField
-              label={isVi ? "Bằng chứng chính" : "Main proof point"}
-              value={form.proofPoint}
-              onChange={(value) => actions.setField("proofPoint", value)}
-              placeholder={isVi ? "Ví dụ: Sau 7 ngày da đều màu hơn khi quay camera thường" : "Example: After 7 days skin tone looked more even on normal camera"}
             />
 
             <div className="variant-inline-control">
