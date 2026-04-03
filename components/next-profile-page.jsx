@@ -10,6 +10,7 @@ import NextSupportChatShell from "@/components/next-support-chat-shell";
 import { getCopy } from "@/lib/i18n";
 import { useUiLanguage } from "@/hooks/use-ui-language";
 import { routes } from "@/lib/routes";
+import { createPortal } from "react-dom";
 
 export default function NextProfilePage() {
   const { language, setLanguage } = useUiLanguage("vi");
@@ -21,6 +22,8 @@ export default function NextProfilePage() {
     activeFavorites,
     form,
     message,
+    cancelConfirmOpen,
+    cancellingPlan,
     actions
   } = useProfileWorkspace(language);
   const copy = getCopy(language);
@@ -40,6 +43,7 @@ export default function NextProfilePage() {
   const remainingPlanDays = Number.isFinite(Number(session?.remainingPlanDays))
     ? Math.max(0, Number(session.remainingPlanDays))
     : null;
+  const renewalMode = Boolean(isPro && session?.cancelAtPeriodEnd);
 
   function handleOpenFavorite(item) {
     const contentType = String(item?.form?.contentType || "").toLowerCase();
@@ -103,6 +107,14 @@ export default function NextProfilePage() {
                 </>
               ) : null}
               {!isPro ? <a className="ghost-button" href={routes.upgrade}>{language === "vi" ? "Nâng cấp Pro" : "Upgrade Pro"}</a> : null}
+              {isPro && !session?.cancelAtPeriodEnd ? (
+                <button type="button" className="ghost-button" onClick={actions.requestCancelPlan}>
+                  {language === "vi" ? "Hủy gói Pro" : "Cancel Pro plan"}
+                </button>
+              ) : null}
+              {renewalMode ? (
+                <a className="ghost-button" href={routes.upgrade}>{language === "vi" ? "Đăng ký lại / gia hạn" : "Resubscribe / extend"}</a>
+              ) : null}
             </div>
           ) : null}
           {!session ? <div className="history-empty">{copy.profile.notLoggedIn}</div> : null}
@@ -145,6 +157,35 @@ export default function NextProfilePage() {
           category: ""
         }}
       />
+
+      {cancelConfirmOpen && typeof document !== "undefined" ? createPortal(
+        <div className="upgrade-success-overlay" role="dialog" aria-modal="true" aria-label={language === "vi" ? "Xác nhận hủy gói Pro" : "Confirm Pro cancellation"} onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            actions.closeCancelConfirm();
+          }
+        }}>
+          <div className="upgrade-success-modal">
+            <div className="upgrade-success-icon" aria-hidden="true">!</div>
+            <h3>{language === "vi" ? "Xác nhận hủy gói Pro" : "Confirm Pro cancellation"}</h3>
+            <p>
+              {language === "vi"
+                ? `Bạn vẫn dùng gói Pro đến hết ngày ${planExpiresAtText}. Sau thời điểm này, tài khoản sẽ về Free.`
+                : `Your Pro access remains active until ${planExpiresAtText}. After that, your account switches to Free.`}
+            </p>
+            <div className="upgrade-success-actions">
+              <button type="button" className="primary-button" disabled={cancellingPlan} onClick={actions.cancelProPlan}>
+                {cancellingPlan
+                  ? (language === "vi" ? "Đang xử lý..." : "Processing...")
+                  : (language === "vi" ? "Xác nhận hủy" : "Confirm cancellation")}
+              </button>
+              <button type="button" className="ghost-button" onClick={actions.closeCancelConfirm}>
+                {language === "vi" ? "Giữ gói Pro" : "Keep Pro"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
     </NextPageFrame>
   );
 }

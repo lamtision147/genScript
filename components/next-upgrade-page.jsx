@@ -55,6 +55,8 @@ export default function NextUpgradePage() {
   const remainingDaysText = Number.isFinite(Number(planInfo?.remainingDays))
     ? `${Math.max(0, Number(planInfo.remainingDays))} ${isVi ? "ngày" : "days"}`
     : "--";
+  const renewalMode = Boolean(isPro && planInfo?.cancelAtPeriodEnd);
+  const canPurchasePro = Boolean(!isPro || renewalMode);
   const proPerks = isVi
     ? [
       "Generate/cải tiến không giới hạn ở cả 2 trang",
@@ -191,24 +193,28 @@ export default function NextUpgradePage() {
 
               {isPro ? (
                 <div className="upgrade-actions-stack">
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    disabled={cancelling}
-                    onClick={actions.requestCancelProPlan}
-                  >
-                    {cancelling
-                      ? (isVi ? "Đang hủy..." : "Cancelling...")
-                      : (planInfo?.cancelAtPeriodEnd
-                        ? (isVi ? "Đã đặt hủy gói" : "Cancellation scheduled")
-                        : (isVi ? "Hủy gói Pro" : "Cancel Pro plan"))}
-                  </button>
+                  {!planInfo?.cancelAtPeriodEnd ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={cancelling}
+                      onClick={actions.requestCancelProPlan}
+                    >
+                      {cancelling
+                        ? (isVi ? "Đang hủy..." : "Cancelling...")
+                        : (isVi ? "Hủy gói Pro" : "Cancel Pro plan")}
+                    </button>
+                  ) : (
+                    <a className="ghost-button" href="#upgrade-payment-card">
+                      {isVi ? "Đăng ký lại / gia hạn Pro" : "Resubscribe / extend Pro"}
+                    </a>
+                  )}
                   <a className="ghost-button" href={routes.scriptProductInfo}>{isVi ? "Quay lại Trang tạo nội dung" : "Back to Studio"}</a>
                 </div>
               ) : null}
             </article>
 
-            <section className="upgrade-payment-card">
+            <section id="upgrade-payment-card" className="upgrade-payment-card">
               <h3 className="subsection-title">{isVi ? "Thanh toán" : "Payment"}</h3>
               <p className="inline-note">
                 {paymentProvider === "stripe"
@@ -284,27 +290,35 @@ export default function NextUpgradePage() {
                   <button
                     type="button"
                     className="primary-button"
-                    disabled={processing || loadingPlan || isPro}
+                    disabled={processing || loadingPlan || !canPurchasePro}
                     onClick={actions.startStripeCheckout}
                   >
-                    {isPro
+                    {!canPurchasePro
                       ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                      : (processing ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...") : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe"))}
+                      : (processing
+                        ? (isVi ? "Đang chuyển tới Stripe..." : "Redirecting to Stripe...")
+                        : (renewalMode
+                          ? (isVi ? "Thanh toán gia hạn Pro qua Stripe" : "Pay via Stripe to extend Pro")
+                          : (isVi ? "Thanh toán qua Stripe" : "Pay with Stripe")))}
                   </button>
                 ) : (
                   <button
                     type="button"
                     className="primary-button"
-                    disabled={processing || loadingPlan || isPro}
+                    disabled={processing || loadingPlan || !canPurchasePro}
                     onClick={actions.submitUpgrade}
                   >
-                    {isPro
+                    {!canPurchasePro
                       ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                      : (processing ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...") : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))}
+                      : (processing
+                        ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...")
+                        : (renewalMode
+                          ? (isVi ? "Thanh toán để gia hạn Pro" : "Pay to extend Pro")
+                          : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro")))}
                   </button>
                 )}
 
-                {!isPro && usingStripe ? (
+                {usingStripe && canPurchasePro ? (
                   <button
                     type="button"
                     className="ghost-button"

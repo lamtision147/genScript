@@ -26,6 +26,8 @@ export function useProfileWorkspace(language = "vi") {
   const [activeFavoriteTab, setActiveFavoriteTab] = useState("product_copy");
   const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
   const [message, setMessage] = useState("");
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancellingPlan, setCancellingPlan] = useState(false);
 
   const favorites = useMemo(
     () => sortByCreatedAtDesc([
@@ -79,6 +81,17 @@ export function useProfileWorkspace(language = "vi") {
     loadFavorites();
   }, [language]);
 
+  useEffect(() => {
+    if (!cancelConfirmOpen) return undefined;
+    const onEsc = (event) => {
+      if (event.key === "Escape") {
+        setCancelConfirmOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [cancelConfirmOpen]);
+
   async function toggleFavorite(historyId) {
     try {
       await apiPost(routes.api.toggleFavorite, { historyId });
@@ -98,6 +111,31 @@ export function useProfileWorkspace(language = "vi") {
     }
   }
 
+  async function cancelProPlan() {
+    if (!session?.id) return;
+    setCancellingPlan(true);
+    setMessage("");
+    try {
+      const data = await apiPost(routes.api.billingCancel, {});
+      const sessionData = await apiGet(routes.api.session, { user: null });
+      setSession(sessionData?.user || null);
+      setMessage(
+        data?.planInfo?.cancelAtPeriodEnd
+          ? (language === "vi"
+            ? "Đã đặt hủy gói. Bạn vẫn dùng Pro đến hết hạn hiện tại."
+            : "Cancellation scheduled. Pro stays active until current expiry.")
+          : (language === "vi"
+            ? "Đã cập nhật trạng thái gói."
+            : "Plan status updated.")
+      );
+      setCancelConfirmOpen(false);
+    } catch (error) {
+      setMessage(localizeKnownMessage(error?.message || copy.messages.genericError, copy) || error?.message || copy.messages.genericError);
+    } finally {
+      setCancellingPlan(false);
+    }
+  }
+
   return {
     session,
     favorites,
@@ -106,10 +144,15 @@ export function useProfileWorkspace(language = "vi") {
     activeFavorites,
     form,
     message,
+    cancelConfirmOpen,
+    cancellingPlan,
     actions: {
       loadFavorites,
       toggleFavorite,
       changePassword,
+      requestCancelPlan: () => setCancelConfirmOpen(true),
+      closeCancelConfirm: () => setCancelConfirmOpen(false),
+      cancelProPlan,
       setActiveFavoriteTab,
       setForm,
       setMessage
