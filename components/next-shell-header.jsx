@@ -7,7 +7,7 @@ import { routes } from "@/lib/routes";
 import { LANGUAGE_OPTIONS, getCopy } from "@/lib/i18n";
 
 export default function NextShellHeader({
-  eyebrow = "SellerScript AI",
+  eyebrow = "SellerSpark",
   title,
   subtitle,
   user,
@@ -100,3 +100,4 @@ export default function NextShellHeader({
     </header>
   );
 }
+

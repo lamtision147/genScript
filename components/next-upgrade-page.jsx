@@ -61,7 +61,7 @@ export default function NextUpgradePage() {
     <NextPageFrame>
       <section className="panel full-span">
         <NextShellHeader
-          eyebrow="SellerScript AI"
+          eyebrow="SellerSpark"
           title={title}
           subtitle={subtitle}
           user={session}
@@ -73,7 +73,7 @@ export default function NextUpgradePage() {
           <section className="upgrade-hero-card">
             <div className="upgrade-hero-main">
               <div className={`upgrade-plan-pill ${isPro ? "pro" : "free"}`}>{isPro ? "PRO" : "FREE"}</div>
-              <h2 className="section-title upgrade-hero-title">{isVi ? "Gói SellerScript AI Pro" : "SellerScript AI Pro Plan"}</h2>
+              <h2 className="section-title upgrade-hero-title">{isVi ? "Gói SellerSpark Pro" : "SellerSpark Pro Plan"}</h2>
               <p className="upgrade-hero-subtitle">
                 {isVi
                   ? "Nâng cấp để mở mọi giới hạn lưu trữ, tập trung vận hành và theo dõi nội dung dài hạn."
@@ -256,3 +256,4 @@ export default function NextUpgradePage() {
     </NextPageFrame>
   );
 }
+

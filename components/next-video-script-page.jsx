@@ -335,7 +335,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   return (
     <NextPageFrame>
       <NextShellHeader
-        eyebrow="SellerScript AI"
+        eyebrow="SellerSpark"
         title={isVi ? "Kịch bản review video chốt đơn" : "High-conversion video review scripts"}
         subtitle={isVi
           ? "Tạo kịch bản TikTok/Shopee có hook mở đầu giữ người xem trong 3 giây đầu."
@@ -687,3 +687,4 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     </NextPageFrame>
   );
 }
+

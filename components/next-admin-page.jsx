@@ -80,7 +80,7 @@ export default function NextAdminPage() {
       <NextPageFrame>
         <section className="panel full-span">
           <NextShellHeader
-            eyebrow="SellerScript AI"
+            eyebrow="SellerSpark"
             title={isVi ? "Quản trị" : "Admin"}
             subtitle=""
             user={session}
@@ -97,7 +97,7 @@ export default function NextAdminPage() {
     <NextPageFrame>
       <section className="panel full-span">
         <NextShellHeader
-          eyebrow="SellerScript AI"
+          eyebrow="SellerSpark"
           title={isVi ? "Bảng điều khiển quản trị" : "Admin Dashboard"}
           subtitle={isVi ? "Quản lý người dùng, đặt lại mật khẩu và dọn dữ liệu tài khoản." : "Manage users, password resets, and account cleanup."}
           user={session}
@@ -165,3 +165,4 @@ export default function NextAdminPage() {
     </NextPageFrame>
   );
 }
+
