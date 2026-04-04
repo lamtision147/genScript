@@ -91,12 +91,17 @@ export function useUpgradeWorkspace(language = "vi") {
   const [successPopupMessage, setSuccessPopupMessage] = useState("");
   const [cardForm, setCardForm] = useState(initialCardForm);
   const [manualPaymentInfo, setManualPaymentInfo] = useState(null);
+  const [manualCheckoutStarted, setManualCheckoutStarted] = useState(false);
+  const [awaitingManualPayment, setAwaitingManualPayment] = useState(false);
 
   const isVi = language === "vi";
   const isPro = String(planInfo?.plan || session?.plan || "free") === "pro";
 
-  async function refreshPlan() {
-    setLoadingPlan(true);
+  async function refreshPlan(options = {}) {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setLoadingPlan(true);
+    }
     try {
       const [sessionData, planData] = await Promise.all([
         apiGet(routes.api.session, { user: null }),
@@ -108,10 +113,20 @@ export function useUpgradeWorkspace(language = "vi") {
       const provider = normalizeGateway(planData?.payment?.provider || "internal");
       setPaymentProvider(provider === "stripe" ? "stripe" : "mock");
       setSelectedGateway((prev) => normalizeGateway(prev));
+
+      return {
+        sessionData,
+        planData
+      };
     } catch (error) {
-      setMessage(error?.message || (isVi ? "Không thể tải thông tin gói." : "Unable to load plan information."));
+      if (!silent) {
+        setMessage(error?.message || (isVi ? "Không thể tải thông tin gói." : "Unable to load plan information."));
+      }
+      return null;
     } finally {
-      setLoadingPlan(false);
+      if (!silent) {
+        setLoadingPlan(false);
+      }
     }
   }
 
@@ -133,40 +148,49 @@ export function useUpgradeWorkspace(language = "vi") {
         transferRef: ""
       }));
       setManualPaymentInfo(null);
+      setManualCheckoutStarted(false);
+      setAwaitingManualPayment(false);
     }
   }, [selectedGateway]);
 
   useEffect(() => {
-    if (selectedGateway !== "internal") {
-      setManualPaymentInfo(null);
-      return;
-    }
-
     const method = normalizeInternalPaymentMethod(internalPaymentMethod);
-    if (method === "card") {
+    if (selectedGateway !== "internal" || method === "card") {
       setManualPaymentInfo(null);
-      return;
+      setManualCheckoutStarted(false);
+      setAwaitingManualPayment(false);
     }
-
-    setMessage("");
-    apiPost(routes.api.billingManualIntent, {
-      method,
-      transferRef: sanitizeTransferRef(cardForm.transferRef)
-    })
-      .then((data) => {
-        setManualPaymentInfo(data?.payment || null);
-        if (data?.payment?.transferRef) {
-          setCardForm((prev) => ({
-            ...prev,
-            transferRef: sanitizeTransferRef(data.payment.transferRef)
-          }));
-        }
-      })
-      .catch((error) => {
-        setManualPaymentInfo(null);
-        setMessage(error?.message || (isVi ? "Không thể tạo thông tin thanh toán thủ công." : "Unable to prepare manual payment info."));
-      });
   }, [selectedGateway, internalPaymentMethod]);
+
+  useEffect(() => {
+    if (!awaitingManualPayment) return undefined;
+
+    let disposed = false;
+    const interval = setInterval(async () => {
+      const snapshot = await refreshPlan({ silent: true });
+      if (disposed || !snapshot) return;
+
+      const currentPlan = String(snapshot?.planData?.planInfo?.plan || snapshot?.sessionData?.user?.plan || "free").toLowerCase();
+      if (currentPlan === "pro") {
+        const successMsg = isVi
+          ? "Thanh toán chuyển khoản đã xác nhận. Tài khoản đã nâng cấp Pro."
+          : "Transfer payment confirmed. Your account is now Pro.";
+        setAwaitingManualPayment(false);
+        setManualCheckoutStarted(false);
+        setManualPaymentInfo(null);
+        setCardForm(initialCardForm());
+        setInternalPaymentMethod("card");
+        setMessage(successMsg);
+        setSuccessPopupMessage(successMsg);
+        setSuccessPopupOpen(true);
+      }
+    }, 5000);
+
+    return () => {
+      disposed = true;
+      clearInterval(interval);
+    };
+  }, [awaitingManualPayment, isVi]);
 
   useEffect(() => {
     if (!cancelConfirmOpen) return undefined;
@@ -181,7 +205,34 @@ export function useUpgradeWorkspace(language = "vi") {
 
   async function submitUpgrade() {
     const normalizedMethod = normalizeInternalPaymentMethod(internalPaymentMethod);
-    const effectiveTransferRef = sanitizeTransferRef(manualPaymentInfo?.transferRef || cardForm.transferRef);
+    let effectiveTransferRef = sanitizeTransferRef(manualPaymentInfo?.transferRef || cardForm.transferRef);
+
+    if (normalizedMethod !== "card") {
+      try {
+        let nextManualInfo = manualPaymentInfo;
+        if (!nextManualInfo) {
+          const intentData = await apiPost(routes.api.billingManualIntent, {
+            method: normalizedMethod,
+            transferRef: effectiveTransferRef
+          });
+          nextManualInfo = intentData?.payment || null;
+          setManualPaymentInfo(nextManualInfo);
+          setManualCheckoutStarted(true);
+        }
+
+        effectiveTransferRef = sanitizeTransferRef(nextManualInfo?.transferRef || effectiveTransferRef);
+        if (effectiveTransferRef) {
+          setCardForm((prev) => ({
+            ...prev,
+            transferRef: effectiveTransferRef
+          }));
+        }
+      } catch (error) {
+        setMessage(error?.message || (isVi ? "Không thể khởi tạo thông tin chuyển khoản." : "Unable to prepare transfer details."));
+        return;
+      }
+    }
+
     const validationError = validateInternalPaymentForm(cardForm, normalizedMethod, language, effectiveTransferRef);
     if (validationError) {
       setMessage(validationError);
@@ -205,13 +256,17 @@ export function useUpgradeWorkspace(language = "vi") {
       setSession(sessionData?.user || null);
       if (data?.pendingManualVerification) {
         const pendingMsg = isVi
-          ? "Đã ghi nhận yêu cầu nâng cấp. Vui lòng hoàn tất chuyển khoản theo QR/nội dung CK và chờ admin duyệt."
-          : "Upgrade request recorded. Please complete the transfer using the QR/note and wait for admin verification.";
+          ? "Đã tạo yêu cầu thanh toán. Vui lòng quét QR để chuyển khoản, hệ thống sẽ tự xác nhận trong ít phút."
+          : "Payment request created. Please pay via QR, the system will auto-confirm in a few minutes.";
+        setManualCheckoutStarted(true);
+        setAwaitingManualPayment(true);
         setMessage(pendingMsg);
       } else {
         setCardForm(initialCardForm());
         setInternalPaymentMethod("card");
         setManualPaymentInfo(null);
+        setManualCheckoutStarted(false);
+        setAwaitingManualPayment(false);
         const successMsg = isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.";
         setMessage(successMsg);
         setSuccessPopupMessage(successMsg);
@@ -319,6 +374,8 @@ export function useUpgradeWorkspace(language = "vi") {
     selectedGateway,
     internalPaymentMethod,
     manualPaymentInfo,
+    manualCheckoutStarted,
+    awaitingManualPayment,
     manualPricing: {
       amount: Number(MANUAL_PRO_PAYMENT.amount || 129000),
       currency: MANUAL_PRO_PAYMENT.currency || "VND"
@@ -356,6 +413,9 @@ export function useUpgradeWorkspace(language = "vi") {
       },
       setInternalPaymentMethod: (value) => {
         setInternalPaymentMethod(normalizeInternalPaymentMethod(value));
+        setManualCheckoutStarted(false);
+        setAwaitingManualPayment(false);
+        setManualPaymentInfo(null);
       },
       refreshManualPaymentInfo: async () => {
         if (selectedGateway !== "internal") return;

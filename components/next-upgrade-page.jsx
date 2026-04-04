@@ -19,6 +19,8 @@ export default function NextUpgradePage() {
     selectedGateway,
     internalPaymentMethod,
     manualPaymentInfo,
+    manualCheckoutStarted,
+    awaitingManualPayment,
     manualPricing,
     loadingPlan,
     processing,
@@ -49,6 +51,7 @@ export default function NextUpgradePage() {
   const usingStripe = selectedGateway === "stripe";
   const usingInternal = selectedGateway === "internal";
   const usingInternalCard = usingInternal && internalPaymentMethod === "card";
+  const usingManualTransferMethod = usingInternal && !usingInternalCard;
   const isStripeAvailable = paymentProvider === "stripe";
   const hasSelectedGateway = Boolean(selectedGateway);
   const isLoggedIn = Boolean(session?.id || session?.email);
@@ -358,79 +361,79 @@ export default function NextUpgradePage() {
                       </>
                     ) : (
                       <>
-                        <div className="upgrade-gateway-preview">
-                          <div className="upgrade-gateway-preview-head">
-                            <strong>
-                              {internalPaymentMethod === "bank_transfer"
-                                ? (isVi ? "Chuyển khoản ngân hàng" : "Bank transfer")
-                                : internalPaymentMethod === "momo"
-                                  ? "MoMo"
-                                  : "ZaloPay"}
-                            </strong>
-                            <span>
-                              {isVi
-                                ? "Chuyển khoản theo thông tin bên dưới, sau đó nhập đúng mã giao dịch để hoàn tất nâng cấp."
-                                : "Transfer with the details below, then submit with your transfer reference to complete upgrade."}
-                            </span>
-                            {manualPaymentInfo?.autoVerifyEnabled ? (
-                              <span className="upgrade-provider-chip">
+                        {manualCheckoutStarted ? (
+                          <div className="upgrade-gateway-preview">
+                            <div className="upgrade-gateway-preview-head">
+                              <strong>
+                                {internalPaymentMethod === "bank_transfer"
+                                  ? (isVi ? "Chuyển khoản ngân hàng" : "Bank transfer")
+                                  : internalPaymentMethod === "momo"
+                                    ? "MoMo"
+                                    : "ZaloPay"}
+                              </strong>
+                              <span>
                                 {isVi
-                                  ? `Auto duyệt: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`
-                                  : `Auto verify: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`}
+                                  ? "Quét QR hoặc chuyển khoản theo thông tin bên dưới. Hệ thống sẽ tự xác nhận và nâng Pro khi nhận được giao dịch hợp lệ."
+                                  : "Scan QR or transfer with the details below. The system auto-confirms and upgrades Pro after a valid payment is received."}
                               </span>
+                              {manualPaymentInfo?.autoVerifyEnabled ? (
+                                <span className="upgrade-provider-chip">
+                                  {isVi
+                                    ? `Auto duyệt: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`
+                                    : `Auto verify: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`}
+                                </span>
+                              ) : null}
+                            </div>
+                            {manualPaymentInfo?.qrImageUrl ? (
+                              <div className="upgrade-qr-wrap">
+                                <img className="upgrade-qr-image" src={manualPaymentInfo.qrImageUrl} alt="VietQR" loading="lazy" />
+                              </div>
                             ) : null}
+                            <div className="upgrade-gateway-preview-rows">
+                              <div>
+                                <span>{isVi ? "Ngân hàng" : "Bank"}</span>
+                                <strong>{manualPaymentInfo?.bankName || "Nam A Bank"}</strong>
+                              </div>
+                              <div>
+                                <span>{isVi ? "Số tài khoản" : "Account number"}</span>
+                                <strong>{manualPaymentInfo?.accountNumber || "707300240600001"}</strong>
+                              </div>
+                              <div>
+                                <span>{isVi ? "Chủ tài khoản" : "Account holder"}</span>
+                                <strong>{manualPaymentInfo?.accountName || "TRAN PHUONG VU"}</strong>
+                              </div>
+                              <div>
+                                <span>{isVi ? "Số tiền" : "Amount"}</span>
+                                <strong>{formatMoneyVnd(manualPaymentInfo?.amount || manualPricing?.amount || 129000)}</strong>
+                              </div>
+                              <div>
+                                <span>{isVi ? "Nội dung CK" : "Transfer note"}</span>
+                                <strong>{manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`}</strong>
+                              </div>
+                              <div>
+                                <span>{isVi ? "Mã giao dịch" : "Transaction reference"}</span>
+                                <strong>{manualPaymentInfo?.transferRef || cardForm.transferRef || "--"}</strong>
+                              </div>
+                            </div>
+                            <div className="upgrade-actions-stack">
+                              <button type="button" className="ghost-button" onClick={() => copyText(manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`)}>
+                                {isVi ? "Copy nội dung chuyển khoản" : "Copy transfer note"}
+                              </button>
+                              <button type="button" className="ghost-button" onClick={actions.refreshManualPaymentInfo}>
+                                {isVi ? "Làm mới QR/mã giao dịch" : "Refresh QR/reference"}
+                              </button>
+                              <button type="button" className="ghost-button" onClick={() => actions.refreshPlan({ silent: true })}>
+                                {isVi ? "Kiểm tra trạng thái thanh toán" : "Check payment status"}
+                              </button>
+                            </div>
                           </div>
-                          {manualPaymentInfo?.qrImageUrl ? (
-                            <div className="upgrade-qr-wrap">
-                              <img className="upgrade-qr-image" src={manualPaymentInfo.qrImageUrl} alt="VietQR" loading="lazy" />
-                            </div>
-                          ) : null}
-                          <div className="upgrade-gateway-preview-rows">
-                            <div>
-                              <span>{isVi ? "Ngân hàng" : "Bank"}</span>
-                              <strong>{manualPaymentInfo?.bankName || "Nam A Bank"}</strong>
-                            </div>
-                            <div>
-                              <span>{isVi ? "Số tài khoản" : "Account number"}</span>
-                              <strong>{manualPaymentInfo?.accountNumber || "707300240600001"}</strong>
-                            </div>
-                            <div>
-                              <span>{isVi ? "Chủ tài khoản" : "Account holder"}</span>
-                              <strong>{manualPaymentInfo?.accountName || "TRAN PHUONG VU"}</strong>
-                            </div>
-                            <div>
-                              <span>{isVi ? "Số tiền" : "Amount"}</span>
-                              <strong>{formatMoneyVnd(manualPaymentInfo?.amount || manualPricing?.amount || 129000)}</strong>
-                            </div>
-                            <div>
-                              <span>{isVi ? "Nội dung CK" : "Transfer note"}</span>
-                              <strong>{manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`}</strong>
-                            </div>
-                            <div>
-                              <span>{isVi ? "Mã giao dịch" : "Transaction reference"}</span>
-                              <strong>{manualPaymentInfo?.transferRef || cardForm.transferRef || "--"}</strong>
-                            </div>
+                        ) : (
+                          <div className="upgrade-gateway-placeholder">
+                            {isVi
+                              ? "Bấm “Thanh toán và nâng cấp Pro” để tạo mã giao dịch và hiển thị QR chuyển khoản."
+                              : "Click “Pay and upgrade to Pro” to generate transfer reference and show payment QR."}
                           </div>
-                          <div className="upgrade-gateway-preview-head">
-                            <span>
-                              {manualPaymentInfo?.autoVerifyEnabled
-                                ? (isVi
-                                  ? "Hệ thống đang bật auto duyệt qua SePay. Sau khi chuyển khoản đúng nội dung, tài khoản sẽ tự lên Pro trong ít phút."
-                                  : "Auto verification via SePay is enabled. After a correct transfer note, your account should auto-upgrade to Pro shortly.")
-                                : (isVi
-                                  ? "Sau khi chuyển khoản xong, nhập đúng mã giao dịch rồi bấm Thanh toán và nâng cấp Pro để gửi yêu cầu duyệt."
-                                  : "After transfer, enter the exact transaction reference and click Pay & Upgrade Pro to submit for verification.")}
-                            </span>
-                          </div>
-                          <div className="upgrade-actions-stack">
-                            <button type="button" className="ghost-button" onClick={() => copyText(manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`)}>
-                              {isVi ? "Copy nội dung chuyển khoản" : "Copy transfer note"}
-                            </button>
-                            <button type="button" className="ghost-button" onClick={actions.refreshManualPaymentInfo}>
-                              {isVi ? "Làm mới QR/mã giao dịch" : "Refresh QR/reference"}
-                            </button>
-                          </div>
-                        </div>
+                        )}
                       </>
                     )}
                   </>
@@ -462,16 +465,28 @@ export default function NextUpgradePage() {
                     <button
                       type="button"
                       className="primary-button"
-                      disabled={processing || loadingPlan || !canPurchasePro || !hasSelectedGateway}
+                      disabled={
+                        processing
+                        || loadingPlan
+                        || !canPurchasePro
+                        || !hasSelectedGateway
+                        || (usingManualTransferMethod && awaitingManualPayment)
+                      }
                       onClick={actions.submitUpgrade}
                     >
-                      {!canPurchasePro
-                        ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
-                        : (processing
-                          ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...")
-                          : (renewalMode
-                            ? (isVi ? "Thanh toán để gia hạn Pro" : "Pay to extend Pro")
-                            : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro")))}
+                      {usingManualTransferMethod
+                        ? (awaitingManualPayment
+                          ? (isVi ? "Chờ thanh toán..." : "Waiting for payment...")
+                          : (processing
+                            ? (isVi ? "Đang tạo thanh toán..." : "Preparing payment...")
+                            : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro")))
+                        : (!canPurchasePro
+                          ? (isVi ? "Bạn đang ở gói Pro" : "You are already on Pro")
+                          : (processing
+                            ? (isVi ? "Đang xử lý thanh toán..." : "Processing payment...")
+                            : (renewalMode
+                              ? (isVi ? "Thanh toán để gia hạn Pro" : "Pay to extend Pro")
+                              : (isVi ? "Thanh toán và nâng cấp Pro" : "Pay and upgrade to Pro"))))}
                     </button>
                   )}
 
