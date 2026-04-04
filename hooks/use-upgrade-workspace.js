@@ -78,7 +78,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const { session, setSession } = useAuthBootstrap();
   const [planInfo, setPlanInfo] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState("mock");
-  const [selectedGateway, setSelectedGateway] = useState("");
+  const [selectedGateway, setSelectedGateway] = useState("internal");
   const [internalPaymentMethod, setInternalPaymentMethod] = useState("bank_transfer");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -277,46 +277,6 @@ export function useUpgradeWorkspace(language = "vi") {
     }
   }
 
-  async function startStripeCheckout() {
-    setProcessing(true);
-    setMessage("");
-    try {
-      const data = await apiPost(routes.api.billingCreateCheckoutSession, {
-        language
-      });
-      const checkoutUrl = String(data?.checkoutUrl || "").trim();
-      if (!checkoutUrl) {
-        throw new Error(isVi ? "Không tạo được phiên Stripe checkout." : "Unable to create Stripe checkout session.");
-      }
-      window.location.href = checkoutUrl;
-    } catch (error) {
-      setMessage(error?.message || (isVi ? "Không thể chuyển sang Stripe lúc này." : "Unable to redirect to Stripe right now."));
-      setProcessing(false);
-    }
-  }
-
-  async function confirmStripeCheckout(sessionId) {
-    const normalizedSessionId = String(sessionId || "").trim();
-    if (!normalizedSessionId) return;
-    setProcessing(true);
-    try {
-      const data = await apiPost(routes.api.billingConfirmCheckout, {
-        sessionId: normalizedSessionId
-      });
-      setPlanInfo(data?.planInfo || null);
-      const sessionData = await apiGet(routes.api.session, { user: null });
-      setSession(sessionData?.user || null);
-      const successMsg = isVi ? "Thanh toán Stripe thành công. Tài khoản đã nâng cấp Pro." : "Stripe payment successful. Your account is now Pro.";
-      setMessage(successMsg);
-      setSuccessPopupMessage(successMsg);
-      setSuccessPopupOpen(true);
-    } catch (error) {
-      setMessage(error?.message || (isVi ? "Không xác nhận được thanh toán Stripe." : "Unable to confirm Stripe payment."));
-    } finally {
-      setProcessing(false);
-    }
-  }
-
   async function cancelProPlan() {
     if (!isPro) return;
     setCancelling(true);
@@ -390,8 +350,6 @@ export function useUpgradeWorkspace(language = "vi") {
     actions: {
       refreshPlan,
       submitUpgrade,
-      startStripeCheckout,
-      confirmStripeCheckout,
       cancelProPlan,
       requestCancelProPlan,
       closeCancelConfirm,
@@ -424,7 +382,6 @@ export function useUpgradeWorkspace(language = "vi") {
         setManualPaymentInfo(null);
       },
       refreshManualPaymentInfo: async () => {
-        if (selectedGateway !== "internal") return;
         const method = normalizeInternalPaymentMethod(internalPaymentMethod);
         try {
           const data = await apiPost(routes.api.billingManualIntent, {
