@@ -38,11 +38,21 @@ function buildCsv(items = []) {
 async function listRows() {
   const supabase = createServerSupabaseClient();
   if (supabase) {
-    const { data, error } = await supabase
+    let result = await supabase
       .from("billing_subscriptions")
       .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
       .order("updated_at", { ascending: false })
       .limit(5000);
+
+    if (result.error && /column.+does not exist|schema cache|failed to parse select parameter/i.test(String(result.error.message || ""))) {
+      result = await supabase
+        .from("billing_subscriptions")
+        .select("user_id,plan,status,provider,amount,currency,upgraded_at,updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(5000);
+    }
+
+    const { data, error } = result;
     if (error) throw new Error(error.message || "Unable to load subscription data");
 
     const userIds = (data || []).map((item) => item.user_id).filter(Boolean);
