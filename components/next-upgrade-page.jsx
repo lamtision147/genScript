@@ -177,7 +177,7 @@ export default function NextUpgradePage() {
                   : `Regular price ${regularDisplay}, first month 50% off`}
               </div>
               <div className="upgrade-provider-chip">
-                {isVi ? "Cổng thanh toán" : "Payment provider"}: {paymentProvider === "stripe" ? "Stripe" : (isVi ? "Nội bộ (mock)" : "Internal (mock)")}
+                {isVi ? "Cổng thanh toán" : "Payment provider"}: {paymentProvider === "stripe" ? "Stripe + SePay" : "SePay"}
               </div>
             </aside>
           </section>
@@ -273,8 +273,8 @@ export default function NextUpgradePage() {
                 <h3 className="subsection-title">{isVi ? "Thanh toán" : "Payment"}</h3>
                 <p className="inline-note">
                   {paymentProvider === "stripe"
-                    ? (isVi ? "Stripe đã sẵn sàng ở backend. Bạn có thể thanh toán trực tiếp qua Stripe hoặc dùng form nội bộ để demo." : "Stripe is configured on backend. You can pay via Stripe or use internal form for demo flow.")
-                    : (isVi ? "Đang chạy giao diện thanh toán nội bộ (mock)." : "Using internal mock payment UI.")}
+                    ? (isVi ? "Hỗ trợ cả Stripe (thẻ quốc tế) và SePay (chuyển khoản Việt Nam auto duyệt)." : "Supports both Stripe (international cards) and SePay (Vietnam transfer auto verification).")
+                    : (isVi ? "Đang dùng SePay cho chuyển khoản Việt Nam tự động duyệt." : "Using SePay for Vietnam transfer auto verification.")}
                 </p>
 
                 <NextSelectField
@@ -284,10 +284,10 @@ export default function NextUpgradePage() {
                     { value: "", label: isVi ? "-- Chọn cổng thanh toán --" : "-- Select payment gateway --" },
                     ...(isStripeAvailable
                     ? [
-                      { value: "stripe", label: "Stripe" },
-                      { value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }
+                      { value: "stripe", label: isVi ? "Stripe (Thẻ quốc tế)" : "Stripe (International cards)" },
+                      { value: "internal", label: isVi ? "Chuyển khoản VN (SePay)" : "Vietnam transfer (SePay)" }
                     ]
-                    : [{ value: "internal", label: isVi ? "Nội bộ (mock)" : "Internal (mock)" }])
+                    : [{ value: "internal", label: isVi ? "Chuyển khoản VN (SePay)" : "Vietnam transfer (SePay)" }])
                   ]}
                   onChange={actions.setPaymentGateway}
                 />
@@ -309,7 +309,7 @@ export default function NextUpgradePage() {
                   <div className="upgrade-gateway-preview stripe">
                     <div className="upgrade-gateway-preview-head">
                       <strong>Stripe</strong>
-                      <span>{isVi ? "Thanh toán bảo mật, chuyển hướng tới trang Stripe chính thức." : "Secure checkout, redirect to official Stripe page."}</span>
+                      <span>{isVi ? "Thanh toán thẻ tín dụng/ghi nợ quốc tế (Visa, Mastercard...) qua Stripe." : "Pay with international credit/debit cards (Visa, Mastercard...) via Stripe."}</span>
                     </div>
                     <div className="upgrade-gateway-preview-rows">
                       <div>
