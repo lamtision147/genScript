@@ -19,6 +19,26 @@ function isMissingColumnError(error) {
   return /column.+does not exist|schema cache|failed to parse select parameter/i.test(message);
 }
 
+function buildLatestSubscriptionMap(rows = [], idField = "user_id", updatedField = "updated_at") {
+  const map = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const userId = String(row?.[idField] || "");
+    if (!userId) continue;
+    const current = map.get(userId);
+    if (!current) {
+      map.set(userId, row);
+      continue;
+    }
+
+    const currentUpdated = String(current?.[updatedField] || "");
+    const nextUpdated = String(row?.[updatedField] || "");
+    if (nextUpdated > currentUpdated) {
+      map.set(userId, row);
+    }
+  }
+  return map;
+}
+
 function applyQuery(items, query = "") {
   const q = normalizeQuery(query);
   if (!q) return items;
@@ -90,7 +110,7 @@ async function listSupabaseSubscriptions() {
 
   const users = Array.isArray(usersData) ? usersData : [];
   const subscriptions = Array.isArray(subsData) ? subsData : [];
-  const subscriptionMap = new Map(subscriptions.map((item) => [String(item.user_id || ""), item]));
+  const subscriptionMap = buildLatestSubscriptionMap(subscriptions, "user_id", "updated_at");
 
   const merged = users.map((user) => {
     const sub = subscriptionMap.get(String(user.id || "")) || null;
@@ -137,7 +157,7 @@ async function listSupabaseSubscriptions() {
 function listLocalSubscriptions() {
   const users = readJsonArray(paths.users);
   const rows = readJsonArray(paths.billingSubscriptions);
-  const subscriptionMap = new Map((Array.isArray(rows) ? rows : []).map((row) => [String(row.userId || ""), row]));
+  const subscriptionMap = buildLatestSubscriptionMap(Array.isArray(rows) ? rows : [], "userId", "updatedAt");
 
   const merged = (Array.isArray(users) ? users : []).map((user) => {
     const sub = subscriptionMap.get(String(user.id || "")) || null;
