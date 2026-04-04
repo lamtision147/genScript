@@ -35,14 +35,13 @@ export async function POST(request) {
     const cardNumber = String(payload?.cardNumber || "").trim();
     const expiry = String(payload?.expiry || "").trim();
     const cvc = String(payload?.cvc || "").trim();
-    const payerName = String(payload?.payerName || "").trim();
     const transferRef = sanitizeTransferRef(payload?.transferRef || "");
 
     if (method === "card") {
       if (!cardHolder || !cardNumber || !expiry || !cvc) {
         return withRequestId(NextResponse.json({ error: "Missing payment fields" }, { status: 400 }), ctx);
       }
-    } else if (!payerName || transferRef.length < 6) {
+    } else if (transferRef.length < 6) {
       return withRequestId(NextResponse.json({ error: "Missing transfer fields" }, { status: 400 }), ctx);
     }
 
@@ -87,7 +86,7 @@ export async function POST(request) {
         amount,
         currency: MANUAL_PRO_PAYMENT.currency || "VND",
         cardLast4,
-        payerName: method === "card" ? cardHolder : payerName,
+        payerName: method === "card" ? cardHolder : "",
         transferRef: method === "card" ? "" : transferRef,
         transferNote: method === "card" ? "" : buildUpgradeTransferNote(transferRef)
       }

@@ -358,21 +358,6 @@ export default function NextUpgradePage() {
                       </>
                     ) : (
                       <>
-                        <div className="form-grid">
-                          <NextTextField
-                            label={isVi ? "Tên người thanh toán" : "Payer name"}
-                            value={cardForm.payerName}
-                            onChange={(value) => actions.updateCardField("payerName", value)}
-                            placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
-                          />
-                          <NextTextField
-                            label={isVi ? "Mã giao dịch" : "Transaction reference"}
-                            value={cardForm.transferRef}
-                            onChange={(value) => actions.updateCardField("transferRef", value)}
-                            placeholder={isVi ? "VD: PRO2026A1" : "Ex: PRO2026A1"}
-                          />
-                        </div>
-
                         <div className="upgrade-gateway-preview">
                           <div className="upgrade-gateway-preview-head">
                             <strong>
@@ -420,6 +405,10 @@ export default function NextUpgradePage() {
                             <div>
                               <span>{isVi ? "Nội dung CK" : "Transfer note"}</span>
                               <strong>{manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`}</strong>
+                            </div>
+                            <div>
+                              <span>{isVi ? "Mã giao dịch" : "Transaction reference"}</span>
+                              <strong>{manualPaymentInfo?.transferRef || cardForm.transferRef || "--"}</strong>
                             </div>
                           </div>
                           <div className="upgrade-gateway-preview-head">

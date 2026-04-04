@@ -12,7 +12,6 @@ function initialCardForm() {
     cardNumber: "",
     expiry: "",
     cvc: "",
-    payerName: "",
     transferRef: ""
   };
 }
@@ -63,20 +62,16 @@ function validateCardForm(form, language = "vi") {
   return "";
 }
 
-function validateInternalPaymentForm(form, method = "card", language = "vi") {
+function validateInternalPaymentForm(form, method = "card", language = "vi", externalTransferRef = "") {
   const isVi = language === "vi";
   const normalizedMethod = normalizeInternalPaymentMethod(method);
   if (normalizedMethod === "card") {
     return validateCardForm(form, language);
   }
 
-  const payerName = String(form?.payerName || "").trim();
-  const transferRef = sanitizeTransferRef(form?.transferRef || "");
-  if (!payerName) {
-    return isVi ? "Vui lòng nhập tên người chuyển khoản/thanh toán." : "Please enter payer name.";
-  }
+  const transferRef = sanitizeTransferRef(externalTransferRef || form?.transferRef || "");
   if (transferRef.length < 6) {
-    return isVi ? "Vui lòng nhập mã giao dịch hợp lệ (ít nhất 6 ký tự)." : "Please enter a valid transaction reference (at least 6 characters).";
+    return isVi ? "Đang khởi tạo mã giao dịch, vui lòng thử lại sau vài giây." : "Preparing transfer reference, please retry in a few seconds.";
   }
   return "";
 }
@@ -135,7 +130,6 @@ export function useUpgradeWorkspace(language = "vi") {
       setInternalPaymentMethod("card");
       setCardForm((prev) => ({
         ...prev,
-        payerName: "",
         transferRef: ""
       }));
       setManualPaymentInfo(null);
@@ -187,7 +181,8 @@ export function useUpgradeWorkspace(language = "vi") {
 
   async function submitUpgrade() {
     const normalizedMethod = normalizeInternalPaymentMethod(internalPaymentMethod);
-    const validationError = validateInternalPaymentForm(cardForm, normalizedMethod, language);
+    const effectiveTransferRef = sanitizeTransferRef(manualPaymentInfo?.transferRef || cardForm.transferRef);
+    const validationError = validateInternalPaymentForm(cardForm, normalizedMethod, language, effectiveTransferRef);
     if (validationError) {
       setMessage(validationError);
       return;
@@ -202,8 +197,7 @@ export function useUpgradeWorkspace(language = "vi") {
         cardNumber: sanitizeCardNumber(cardForm.cardNumber),
         expiry: sanitizeExpiry(cardForm.expiry),
         cvc: sanitizeCvc(cardForm.cvc),
-        payerName: String(cardForm.payerName || "").trim(),
-        transferRef: sanitizeTransferRef(cardForm.transferRef)
+        transferRef: effectiveTransferRef
       });
 
       setPlanInfo(data?.planInfo || null);
