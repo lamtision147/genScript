@@ -10,9 +10,13 @@ function initialCardForm() {
     cardHolder: "",
     cardNumber: "",
     expiry: "",
-    cvc: ""
+    cvc: "",
+    payerName: "",
+    transferRef: ""
   };
 }
+
+const INTERNAL_METHOD_VALUES = new Set(["card", "bank_transfer", "momo", "zalopay"]);
 
 function normalizeGateway(value = "") {
   const raw = String(value || "").trim().toLowerCase();
@@ -35,6 +39,15 @@ function sanitizeCvc(value = "") {
   return String(value || "").replace(/\D+/g, "").slice(0, 4);
 }
 
+function sanitizeTransferRef(value = "") {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32).toUpperCase();
+}
+
+function normalizeInternalPaymentMethod(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+  return INTERNAL_METHOD_VALUES.has(raw) ? raw : "card";
+}
+
 function validateCardForm(form, language = "vi") {
   const isVi = language === "vi";
   const holder = String(form.cardHolder || "").trim();
@@ -49,11 +62,30 @@ function validateCardForm(form, language = "vi") {
   return "";
 }
 
+function validateInternalPaymentForm(form, method = "card", language = "vi") {
+  const isVi = language === "vi";
+  const normalizedMethod = normalizeInternalPaymentMethod(method);
+  if (normalizedMethod === "card") {
+    return validateCardForm(form, language);
+  }
+
+  const payerName = String(form?.payerName || "").trim();
+  const transferRef = sanitizeTransferRef(form?.transferRef || "");
+  if (!payerName) {
+    return isVi ? "Vui lòng nhập tên người chuyển khoản/thanh toán." : "Please enter payer name.";
+  }
+  if (transferRef.length < 6) {
+    return isVi ? "Vui lòng nhập mã giao dịch hợp lệ (ít nhất 6 ký tự)." : "Please enter a valid transaction reference (at least 6 characters).";
+  }
+  return "";
+}
+
 export function useUpgradeWorkspace(language = "vi") {
   const { session, setSession } = useAuthBootstrap();
   const [planInfo, setPlanInfo] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState("mock");
   const [selectedGateway, setSelectedGateway] = useState("");
+  const [internalPaymentMethod, setInternalPaymentMethod] = useState("card");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -97,6 +129,17 @@ export function useUpgradeWorkspace(language = "vi") {
   }, [paymentProvider, selectedGateway]);
 
   useEffect(() => {
+    if (selectedGateway === "stripe") {
+      setInternalPaymentMethod("card");
+      setCardForm((prev) => ({
+        ...prev,
+        payerName: "",
+        transferRef: ""
+      }));
+    }
+  }, [selectedGateway]);
+
+  useEffect(() => {
     if (!cancelConfirmOpen) return undefined;
     const onEsc = (event) => {
       if (event.key === "Escape") {
@@ -108,7 +151,8 @@ export function useUpgradeWorkspace(language = "vi") {
   }, [cancelConfirmOpen]);
 
   async function submitUpgrade() {
-    const validationError = validateCardForm(cardForm, language);
+    const normalizedMethod = normalizeInternalPaymentMethod(internalPaymentMethod);
+    const validationError = validateInternalPaymentForm(cardForm, normalizedMethod, language);
     if (validationError) {
       setMessage(validationError);
       return;
@@ -118,16 +162,20 @@ export function useUpgradeWorkspace(language = "vi") {
     setMessage("");
     try {
       const data = await apiPost(routes.api.billingUpgrade, {
+        method: normalizedMethod,
         cardHolder: String(cardForm.cardHolder || "").trim(),
         cardNumber: sanitizeCardNumber(cardForm.cardNumber),
         expiry: sanitizeExpiry(cardForm.expiry),
-        cvc: sanitizeCvc(cardForm.cvc)
+        cvc: sanitizeCvc(cardForm.cvc),
+        payerName: String(cardForm.payerName || "").trim(),
+        transferRef: sanitizeTransferRef(cardForm.transferRef)
       });
 
       setPlanInfo(data?.planInfo || null);
       const sessionData = await apiGet(routes.api.session, { user: null });
       setSession(sessionData?.user || null);
       setCardForm(initialCardForm());
+      setInternalPaymentMethod("card");
       const successMsg = isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.";
       setMessage(successMsg);
       setSuccessPopupMessage(successMsg);
@@ -220,6 +268,9 @@ export function useUpgradeWorkspace(language = "vi") {
       if (key === "cvc") {
         return { ...prev, cvc: sanitizeCvc(value) };
       }
+      if (key === "transferRef") {
+        return { ...prev, transferRef: sanitizeTransferRef(value) };
+      }
       return { ...prev, [key]: value };
     });
   }
@@ -229,6 +280,7 @@ export function useUpgradeWorkspace(language = "vi") {
     planInfo,
     paymentProvider,
     selectedGateway,
+    internalPaymentMethod,
     loadingPlan,
     processing,
     cancelling,
@@ -259,6 +311,9 @@ export function useUpgradeWorkspace(language = "vi") {
           return;
         }
         setSelectedGateway(next);
+      },
+      setInternalPaymentMethod: (value) => {
+        setInternalPaymentMethod(normalizeInternalPaymentMethod(value));
       },
       setMessage,
       closeSuccessPopup: () => setSuccessPopupOpen(false)

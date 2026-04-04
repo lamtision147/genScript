@@ -17,6 +17,7 @@ export default function NextUpgradePage() {
     planInfo,
     paymentProvider,
     selectedGateway,
+    internalPaymentMethod,
     loadingPlan,
     processing,
     cancelling,
@@ -44,6 +45,8 @@ export default function NextUpgradePage() {
   const firstMonthDisplay = isVi ? "129.000đ" : "$5";
   const regularDisplay = isVi ? "249.000đ" : "$10";
   const usingStripe = selectedGateway === "stripe";
+  const usingInternal = selectedGateway === "internal";
+  const usingInternalCard = usingInternal && internalPaymentMethod === "card";
   const isStripeAvailable = paymentProvider === "stripe";
   const hasSelectedGateway = Boolean(selectedGateway);
   const isLoggedIn = Boolean(session?.id || session?.email);
@@ -270,6 +273,20 @@ export default function NextUpgradePage() {
                   onChange={actions.setPaymentGateway}
                 />
 
+                {usingInternal ? (
+                  <NextSelectField
+                    label={isVi ? "Phương thức thanh toán" : "Payment method"}
+                    value={internalPaymentMethod}
+                    options={[
+                      { value: "card", label: isVi ? "Thẻ tín dụng/ghi nợ" : "Credit / Debit card" },
+                      { value: "bank_transfer", label: isVi ? "Chuyển khoản ngân hàng" : "Bank transfer" },
+                      { value: "momo", label: "MoMo" },
+                      { value: "zalopay", label: "ZaloPay" }
+                    ]}
+                    onChange={actions.setInternalPaymentMethod}
+                  />
+                ) : null}
+
                 {hasSelectedGateway && usingStripe ? (
                   <div className="upgrade-gateway-preview stripe">
                     <div className="upgrade-gateway-preview-head">
@@ -289,35 +306,83 @@ export default function NextUpgradePage() {
                   </div>
                 ) : (hasSelectedGateway ? (
                   <>
-                    <div className="form-grid">
-                      <NextTextField
-                        label={isVi ? "Tên chủ thẻ" : "Card holder"}
-                        value={cardForm.cardHolder}
-                        onChange={(value) => actions.updateCardField("cardHolder", value)}
-                        placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
-                      />
-                      <NextTextField
-                        label={isVi ? "Số thẻ" : "Card number"}
-                        value={cardForm.cardNumber}
-                        onChange={(value) => actions.updateCardField("cardNumber", value)}
-                        placeholder="4242 4242 4242 4242"
-                      />
-                    </div>
+                    {usingInternalCard ? (
+                      <>
+                        <div className="form-grid">
+                          <NextTextField
+                            label={isVi ? "Tên chủ thẻ" : "Card holder"}
+                            value={cardForm.cardHolder}
+                            onChange={(value) => actions.updateCardField("cardHolder", value)}
+                            placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
+                          />
+                          <NextTextField
+                            label={isVi ? "Số thẻ" : "Card number"}
+                            value={cardForm.cardNumber}
+                            onChange={(value) => actions.updateCardField("cardNumber", value)}
+                            placeholder="4242 4242 4242 4242"
+                          />
+                        </div>
 
-                    <div className="form-grid">
-                      <NextTextField
-                        label={isVi ? "Ngày hết hạn" : "Expiry"}
-                        value={cardForm.expiry}
-                        onChange={(value) => actions.updateCardField("expiry", value)}
-                        placeholder="MM/YY"
-                      />
-                      <NextTextField
-                        label="CVC"
-                        value={cardForm.cvc}
-                        onChange={(value) => actions.updateCardField("cvc", value)}
-                        placeholder="123"
-                      />
-                    </div>
+                        <div className="form-grid">
+                          <NextTextField
+                            label={isVi ? "Ngày hết hạn" : "Expiry"}
+                            value={cardForm.expiry}
+                            onChange={(value) => actions.updateCardField("expiry", value)}
+                            placeholder="MM/YY"
+                          />
+                          <NextTextField
+                            label="CVC"
+                            value={cardForm.cvc}
+                            onChange={(value) => actions.updateCardField("cvc", value)}
+                            placeholder="123"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="form-grid">
+                          <NextTextField
+                            label={isVi ? "Tên người thanh toán" : "Payer name"}
+                            value={cardForm.payerName}
+                            onChange={(value) => actions.updateCardField("payerName", value)}
+                            placeholder={isVi ? "NGUYEN VAN A" : "JOHN DOE"}
+                          />
+                          <NextTextField
+                            label={isVi ? "Mã giao dịch" : "Transaction reference"}
+                            value={cardForm.transferRef}
+                            onChange={(value) => actions.updateCardField("transferRef", value)}
+                            placeholder={isVi ? "VD: PRO2026A1" : "Ex: PRO2026A1"}
+                          />
+                        </div>
+
+                        <div className="upgrade-gateway-preview">
+                          <div className="upgrade-gateway-preview-head">
+                            <strong>
+                              {internalPaymentMethod === "bank_transfer"
+                                ? (isVi ? "Chuyển khoản ngân hàng" : "Bank transfer")
+                                : internalPaymentMethod === "momo"
+                                  ? "MoMo"
+                                  : "ZaloPay"}
+                            </strong>
+                            <span>
+                              {isVi
+                                ? "Demo phương thức thanh toán nội bộ: nhập thông tin người thanh toán và mã giao dịch để hoàn tất nâng cấp."
+                                : "Internal payment method demo: enter payer info and transaction reference to complete upgrade."}
+                            </span>
+                          </div>
+                          <div className="upgrade-gateway-preview-rows">
+                            <div>
+                              <span>{isVi ? "Người nhận" : "Receiver"}</span>
+                              <strong>SellerScript Pro</strong>
+                            </div>
+                            <div>
+                              <span>{isVi ? "Nội dung CK" : "Transfer note"}</span>
+                              <strong>{isVi ? "Nâng cấp Pro + email tài khoản" : "Upgrade Pro + account email"}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <div className="upgrade-gateway-placeholder">

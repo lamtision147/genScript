@@ -30,6 +30,7 @@ export default function NextShellHeader({
   const copy = getCopy(language);
   const isVi = language === "vi";
   const isAdminUser = Boolean(user?.isAdmin);
+  const isProUser = String(user?.plan || "").toLowerCase() === "pro";
   const userLabel = String(user?.name || user?.email || "").trim();
   const { isDark, toggleTheme } = useThemePreference();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -71,7 +72,11 @@ export default function NextShellHeader({
         <div className="header-topbar-right">
           <div className="header-utility-nav">
             <Link className={`ghost-button nav-link ${isProfilePage ? "active" : ""}`} href={routes.profile}>{copy.common.profile}</Link>
-            {!user?.isAdmin ? <Link className={`ghost-button nav-link ${isUpgradePage ? "active" : ""}`} href={routes.upgrade}>{copy.common.upgrade || "Upgrade Pro"}</Link> : null}
+            {!user?.isAdmin
+              ? (isProUser
+                ? <span className="header-plan-tag" title={isVi ? "Tài khoản Pro" : "Pro account"}>PRO</span>
+                : <Link className={`ghost-button nav-link ${isUpgradePage ? "active" : ""}`} href={routes.upgrade}>{copy.common.upgrade || "Upgrade Pro"}</Link>)
+              : null}
             {isAdminUser ? <Link className={`ghost-button nav-link ${isAdminPage ? "active" : ""}`} href={routes.admin}>Admin</Link> : null}
           </div>
           {userLabel
@@ -123,7 +128,11 @@ export default function NextShellHeader({
 
           <div className="header-mobile-group">
             <Link className={`ghost-button nav-link ${isProfilePage ? "active" : ""}`} href={routes.profile}>{copy.common.profile}</Link>
-            {!user?.isAdmin ? <Link className={`ghost-button nav-link ${isUpgradePage ? "active" : ""}`} href={routes.upgrade}>{copy.common.upgrade || "Upgrade Pro"}</Link> : null}
+            {!user?.isAdmin
+              ? (isProUser
+                ? <span className="header-plan-tag" title={isVi ? "Tài khoản Pro" : "Pro account"}>PRO</span>
+                : <Link className={`ghost-button nav-link ${isUpgradePage ? "active" : ""}`} href={routes.upgrade}>{copy.common.upgrade || "Upgrade Pro"}</Link>)
+              : null}
             {isAdminUser ? <Link className={`ghost-button nav-link ${isAdminPage ? "active" : ""}`} href={routes.admin}>Admin</Link> : null}
           </div>
 

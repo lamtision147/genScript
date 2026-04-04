@@ -3,10 +3,21 @@ import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
 import { upgradeUserToProAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
 
+const SUPPORTED_METHODS = new Set(["card", "bank_transfer", "momo", "zalopay"]);
+
 function sanitizeCardLast4(value) {
   const digits = String(value || "").replace(/\D+/g, "");
   if (digits.length < 4) return "";
   return digits.slice(-4);
+}
+
+function sanitizeTransferRef(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32).toUpperCase();
+}
+
+function normalizePaymentMethod(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+  return SUPPORTED_METHODS.has(raw) ? raw : "card";
 }
 
 export async function POST(request) {
@@ -18,27 +29,40 @@ export async function POST(request) {
     }
 
     const payload = await request.json().catch(() => ({}));
+    const method = normalizePaymentMethod(payload?.method || "card");
     const cardHolder = String(payload?.cardHolder || "").trim();
     const cardNumber = String(payload?.cardNumber || "").trim();
     const expiry = String(payload?.expiry || "").trim();
     const cvc = String(payload?.cvc || "").trim();
+    const payerName = String(payload?.payerName || "").trim();
+    const transferRef = sanitizeTransferRef(payload?.transferRef || "");
 
-    if (!cardHolder || !cardNumber || !expiry || !cvc) {
-      return withRequestId(NextResponse.json({ error: "Missing payment fields" }, { status: 400 }), ctx);
+    if (method === "card") {
+      if (!cardHolder || !cardNumber || !expiry || !cvc) {
+        return withRequestId(NextResponse.json({ error: "Missing payment fields" }, { status: 400 }), ctx);
+      }
+    } else if (!payerName || transferRef.length < 6) {
+      return withRequestId(NextResponse.json({ error: "Missing transfer fields" }, { status: 400 }), ctx);
     }
 
-    const transactionRef = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const transactionRef = method === "card"
+      ? `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      : `${method}_${transferRef || Math.random().toString(36).slice(2, 8)}_${Date.now()}`;
+
+    const cardLast4 = method === "card" ? sanitizeCardLast4(cardNumber) : "";
+
     const planInfo = await upgradeUserToProAsync(user.id, {
-      provider: "mock",
+      provider: `mock_${method}`,
       transactionRef,
       amount: 129000,
       currency: "VND",
-      cardLast4: sanitizeCardLast4(cardNumber)
+      cardLast4
     });
 
     logInfo(ctx, "billing.upgrade.success", {
       userId: user.id,
       plan: planInfo.plan,
+      method,
       transactionRef,
       ms: elapsedMs(ctx)
     });
@@ -47,10 +71,13 @@ export async function POST(request) {
       ok: true,
       planInfo,
       receipt: {
+        method,
         transactionRef,
         amount: 129000,
         currency: "VND",
-        cardLast4: sanitizeCardLast4(cardNumber)
+        cardLast4,
+        payerName: method === "card" ? cardHolder : payerName,
+        transferRef: method === "card" ? "" : transferRef
       }
     }), ctx);
   } catch (error) {
