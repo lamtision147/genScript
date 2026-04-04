@@ -16,7 +16,7 @@ function initialCardForm() {
   };
 }
 
-const INTERNAL_METHOD_VALUES = new Set(["card", "bank_transfer", "momo", "zalopay"]);
+const INTERNAL_METHOD_VALUES = new Set(["bank_transfer", "momo", "zalopay"]);
 
 function normalizeGateway(value = "") {
   const raw = String(value || "").trim().toLowerCase();
@@ -45,7 +45,8 @@ function sanitizeTransferRef(value = "") {
 
 function normalizeInternalPaymentMethod(value = "") {
   const raw = String(value || "").trim().toLowerCase();
-  return INTERNAL_METHOD_VALUES.has(raw) ? raw : "card";
+  if (raw === "card") return "bank_transfer";
+  return INTERNAL_METHOD_VALUES.has(raw) ? raw : "bank_transfer";
 }
 
 function validateCardForm(form, language = "vi") {
@@ -65,9 +66,6 @@ function validateCardForm(form, language = "vi") {
 function validateInternalPaymentForm(form, method = "card", language = "vi", externalTransferRef = "") {
   const isVi = language === "vi";
   const normalizedMethod = normalizeInternalPaymentMethod(method);
-  if (normalizedMethod === "card") {
-    return validateCardForm(form, language);
-  }
 
   const transferRef = sanitizeTransferRef(externalTransferRef || form?.transferRef || "");
   if (transferRef.length < 6) {
@@ -81,7 +79,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const [planInfo, setPlanInfo] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState("mock");
   const [selectedGateway, setSelectedGateway] = useState("");
-  const [internalPaymentMethod, setInternalPaymentMethod] = useState("card");
+  const [internalPaymentMethod, setInternalPaymentMethod] = useState("bank_transfer");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -142,7 +140,7 @@ export function useUpgradeWorkspace(language = "vi") {
 
   useEffect(() => {
     if (selectedGateway === "stripe") {
-      setInternalPaymentMethod("card");
+      setInternalPaymentMethod("bank_transfer");
       setCardForm((prev) => ({
         ...prev,
         transferRef: ""
@@ -263,7 +261,7 @@ export function useUpgradeWorkspace(language = "vi") {
         setMessage(pendingMsg);
       } else {
         setCardForm(initialCardForm());
-        setInternalPaymentMethod("card");
+        setInternalPaymentMethod("bank_transfer");
         setManualPaymentInfo(null);
         setManualCheckoutStarted(false);
         setAwaitingManualPayment(false);
@@ -403,6 +401,9 @@ export function useUpgradeWorkspace(language = "vi") {
         const next = normalizeGateway(value);
         if (!next) {
           setSelectedGateway("");
+          setManualCheckoutStarted(false);
+          setAwaitingManualPayment(false);
+          setManualPaymentInfo(null);
           return;
         }
         if (next === "stripe" && paymentProvider !== "stripe") {
@@ -410,6 +411,11 @@ export function useUpgradeWorkspace(language = "vi") {
           return;
         }
         setSelectedGateway(next);
+        if (next !== "internal") {
+          setManualCheckoutStarted(false);
+          setAwaitingManualPayment(false);
+          setManualPaymentInfo(null);
+        }
       },
       setInternalPaymentMethod: (value) => {
         setInternalPaymentMethod(normalizeInternalPaymentMethod(value));
@@ -420,10 +426,6 @@ export function useUpgradeWorkspace(language = "vi") {
       refreshManualPaymentInfo: async () => {
         if (selectedGateway !== "internal") return;
         const method = normalizeInternalPaymentMethod(internalPaymentMethod);
-        if (method === "card") {
-          setManualPaymentInfo(null);
-          return;
-        }
         try {
           const data = await apiPost(routes.api.billingManualIntent, {
             method,
