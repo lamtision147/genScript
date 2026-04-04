@@ -18,6 +18,8 @@ export default function NextUpgradePage() {
     paymentProvider,
     selectedGateway,
     internalPaymentMethod,
+    manualPaymentInfo,
+    manualPricing,
     loadingPlan,
     processing,
     cancelling,
@@ -107,6 +109,22 @@ export default function NextUpgradePage() {
       const paymentNode = document.getElementById("upgrade-payment-card");
       paymentNode?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
+  }
+
+  function formatMoneyVnd(value) {
+    const amount = Math.max(0, Math.floor(Number(value || 0) || 0));
+    return `${amount.toLocaleString(isVi ? "vi-VN" : "en-US")} ${manualPricing?.currency || "VND"}`;
+  }
+
+  async function copyText(value) {
+    const safe = String(value || "").trim();
+    if (!safe) return;
+    try {
+      await navigator.clipboard.writeText(safe);
+      actions.setMessage(isVi ? "Đã sao chép." : "Copied.");
+    } catch {
+      actions.setMessage(isVi ? "Không thể sao chép, vui lòng copy thủ công." : "Unable to copy. Please copy manually.");
+    }
   }
 
   return (
@@ -366,19 +384,51 @@ export default function NextUpgradePage() {
                             </strong>
                             <span>
                               {isVi
-                                ? "Demo phương thức thanh toán nội bộ: nhập thông tin người thanh toán và mã giao dịch để hoàn tất nâng cấp."
-                                : "Internal payment method demo: enter payer info and transaction reference to complete upgrade."}
+                                ? "Chuyển khoản theo thông tin bên dưới, sau đó nhập đúng mã giao dịch để hoàn tất nâng cấp."
+                                : "Transfer with the details below, then submit with your transfer reference to complete upgrade."}
                             </span>
                           </div>
+                          {manualPaymentInfo?.qrImageUrl ? (
+                            <div className="upgrade-qr-wrap">
+                              <img className="upgrade-qr-image" src={manualPaymentInfo.qrImageUrl} alt="VietQR" loading="lazy" />
+                            </div>
+                          ) : null}
                           <div className="upgrade-gateway-preview-rows">
                             <div>
-                              <span>{isVi ? "Người nhận" : "Receiver"}</span>
-                              <strong>SellerScript Pro</strong>
+                              <span>{isVi ? "Ngân hàng" : "Bank"}</span>
+                              <strong>{manualPaymentInfo?.bankName || "Nam A Bank"}</strong>
+                            </div>
+                            <div>
+                              <span>{isVi ? "Số tài khoản" : "Account number"}</span>
+                              <strong>{manualPaymentInfo?.accountNumber || "707300240600001"}</strong>
+                            </div>
+                            <div>
+                              <span>{isVi ? "Chủ tài khoản" : "Account holder"}</span>
+                              <strong>{manualPaymentInfo?.accountName || "TRAN PHUONG VU"}</strong>
+                            </div>
+                            <div>
+                              <span>{isVi ? "Số tiền" : "Amount"}</span>
+                              <strong>{formatMoneyVnd(manualPaymentInfo?.amount || manualPricing?.amount || 129000)}</strong>
                             </div>
                             <div>
                               <span>{isVi ? "Nội dung CK" : "Transfer note"}</span>
-                              <strong>{isVi ? "Nâng cấp Pro + email tài khoản" : "Upgrade Pro + account email"}</strong>
+                              <strong>{manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`}</strong>
                             </div>
+                          </div>
+                          <div className="upgrade-gateway-preview-head">
+                            <span>
+                              {isVi
+                                ? "Sau khi chuyển khoản xong, nhập đúng mã giao dịch rồi bấm Thanh toán và nâng cấp Pro để gửi yêu cầu duyệt."
+                                : "After transfer, enter the exact transaction reference and click Pay & Upgrade Pro to submit for verification."}
+                            </span>
+                          </div>
+                          <div className="upgrade-actions-stack">
+                            <button type="button" className="ghost-button" onClick={() => copyText(manualPaymentInfo?.transferNote || `PRO ${cardForm.transferRef || ""}`)}>
+                              {isVi ? "Copy nội dung chuyển khoản" : "Copy transfer note"}
+                            </button>
+                            <button type="button" className="ghost-button" onClick={actions.refreshManualPaymentInfo}>
+                              {isVi ? "Làm mới QR/mã giao dịch" : "Refresh QR/reference"}
+                            </button>
                           </div>
                         </div>
                       </>

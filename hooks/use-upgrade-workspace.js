@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuthBootstrap } from "@/hooks/use-auth-bootstrap";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { routes } from "@/lib/routes";
+import { MANUAL_PRO_PAYMENT } from "@/lib/manual-payment-config";
 
 function initialCardForm() {
   return {
@@ -94,6 +95,7 @@ export function useUpgradeWorkspace(language = "vi") {
   const [successPopupOpen, setSuccessPopupOpen] = useState(false);
   const [successPopupMessage, setSuccessPopupMessage] = useState("");
   const [cardForm, setCardForm] = useState(initialCardForm);
+  const [manualPaymentInfo, setManualPaymentInfo] = useState(null);
 
   const isVi = language === "vi";
   const isPro = String(planInfo?.plan || session?.plan || "free") === "pro";
@@ -136,8 +138,41 @@ export function useUpgradeWorkspace(language = "vi") {
         payerName: "",
         transferRef: ""
       }));
+      setManualPaymentInfo(null);
     }
   }, [selectedGateway]);
+
+  useEffect(() => {
+    if (selectedGateway !== "internal") {
+      setManualPaymentInfo(null);
+      return;
+    }
+
+    const method = normalizeInternalPaymentMethod(internalPaymentMethod);
+    if (method === "card") {
+      setManualPaymentInfo(null);
+      return;
+    }
+
+    setMessage("");
+    apiPost(routes.api.billingManualIntent, {
+      method,
+      transferRef: sanitizeTransferRef(cardForm.transferRef)
+    })
+      .then((data) => {
+        setManualPaymentInfo(data?.payment || null);
+        if (data?.payment?.transferRef) {
+          setCardForm((prev) => ({
+            ...prev,
+            transferRef: sanitizeTransferRef(data.payment.transferRef)
+          }));
+        }
+      })
+      .catch((error) => {
+        setManualPaymentInfo(null);
+        setMessage(error?.message || (isVi ? "Không thể tạo thông tin thanh toán thủ công." : "Unable to prepare manual payment info."));
+      });
+  }, [selectedGateway, internalPaymentMethod]);
 
   useEffect(() => {
     if (!cancelConfirmOpen) return undefined;
@@ -174,12 +209,20 @@ export function useUpgradeWorkspace(language = "vi") {
       setPlanInfo(data?.planInfo || null);
       const sessionData = await apiGet(routes.api.session, { user: null });
       setSession(sessionData?.user || null);
-      setCardForm(initialCardForm());
-      setInternalPaymentMethod("card");
-      const successMsg = isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.";
-      setMessage(successMsg);
-      setSuccessPopupMessage(successMsg);
-      setSuccessPopupOpen(true);
+      if (data?.pendingManualVerification) {
+        const pendingMsg = isVi
+          ? "Đã ghi nhận yêu cầu nâng cấp. Vui lòng hoàn tất chuyển khoản theo QR/nội dung CK và chờ admin duyệt."
+          : "Upgrade request recorded. Please complete the transfer using the QR/note and wait for admin verification.";
+        setMessage(pendingMsg);
+      } else {
+        setCardForm(initialCardForm());
+        setInternalPaymentMethod("card");
+        setManualPaymentInfo(null);
+        const successMsg = isVi ? "Thanh toán thành công. Tài khoản đã nâng cấp Pro." : "Payment successful. Your account is now Pro.";
+        setMessage(successMsg);
+        setSuccessPopupMessage(successMsg);
+        setSuccessPopupOpen(true);
+      }
     } catch (error) {
       setMessage(error?.message || (isVi ? "Thanh toán thất bại." : "Payment failed."));
     } finally {
@@ -281,6 +324,11 @@ export function useUpgradeWorkspace(language = "vi") {
     paymentProvider,
     selectedGateway,
     internalPaymentMethod,
+    manualPaymentInfo,
+    manualPricing: {
+      amount: Number(MANUAL_PRO_PAYMENT.amount || 129000),
+      currency: MANUAL_PRO_PAYMENT.currency || "VND"
+    },
     loadingPlan,
     processing,
     cancelling,
@@ -314,6 +362,29 @@ export function useUpgradeWorkspace(language = "vi") {
       },
       setInternalPaymentMethod: (value) => {
         setInternalPaymentMethod(normalizeInternalPaymentMethod(value));
+      },
+      refreshManualPaymentInfo: async () => {
+        if (selectedGateway !== "internal") return;
+        const method = normalizeInternalPaymentMethod(internalPaymentMethod);
+        if (method === "card") {
+          setManualPaymentInfo(null);
+          return;
+        }
+        try {
+          const data = await apiPost(routes.api.billingManualIntent, {
+            method,
+            transferRef: sanitizeTransferRef(cardForm.transferRef)
+          });
+          setManualPaymentInfo(data?.payment || null);
+          if (data?.payment?.transferRef) {
+            setCardForm((prev) => ({
+              ...prev,
+              transferRef: sanitizeTransferRef(data.payment.transferRef)
+            }));
+          }
+        } catch (error) {
+          setMessage(error?.message || (isVi ? "Không thể làm mới thông tin thanh toán." : "Unable to refresh payment info."));
+        }
       },
       setMessage,
       closeSuccessPopup: () => setSuccessPopupOpen(false)

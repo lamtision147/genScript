@@ -26,7 +26,9 @@ function applyQuery(items, query = "") {
     const email = String(item.email || "").toLowerCase();
     const name = String(item.name || "").toLowerCase();
     const plan = String(item.plan || "").toLowerCase();
-    return email.includes(q) || name.includes(q) || plan.includes(q);
+    const transactionRef = String(item.transactionRef || "").toLowerCase();
+    const provider = String(item.provider || "").toLowerCase();
+    return email.includes(q) || name.includes(q) || plan.includes(q) || transactionRef.includes(q) || provider.includes(q);
   });
 }
 

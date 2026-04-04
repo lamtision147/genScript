@@ -12,7 +12,8 @@ export default function NextAdminBillingPanel({
   onPageChange,
   onExport,
   onUpgrade,
-  onDowngrade
+  onDowngrade,
+  onVerifyManualPayment
 }) {
   const isVi = language === "vi";
   const list = Array.isArray(subscriptions) ? subscriptions : [];
@@ -65,6 +66,9 @@ export default function NextAdminBillingPanel({
               {list.map((row) => {
                 const busy = changing.userId === row.userId;
                 const isPro = String(row.plan || "free") === "pro";
+                const isManualPending = !isPro
+                  && String(row.status || "").toLowerCase() === "pending"
+                  && String(row.provider || "").toLowerCase().startsWith("manual_");
                 const proExpiryText = isPro
                   ? formatDateTime(row.expiresAt, isVi ? "Chưa có hạn" : "Not set")
                   : "-";
@@ -93,14 +97,42 @@ export default function NextAdminBillingPanel({
                           {busy ? (isVi ? "Đang xử lý..." : "Processing...") : (isVi ? "Hạ về Free" : "Downgrade to Free")}
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={busy}
-                          onClick={() => onUpgrade(row.userId)}
-                        >
-                          {busy ? (isVi ? "Đang xử lý..." : "Processing...") : (isVi ? "Nâng lên Pro" : "Upgrade to Pro")}
-                        </button>
+                        <div className="admin-user-actions">
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            disabled={busy}
+                            onClick={() => onUpgrade(row.userId)}
+                          >
+                            {busy ? (isVi ? "Đang xử lý..." : "Processing...") : (isVi ? "Nâng lên Pro" : "Upgrade to Pro")}
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            disabled={busy}
+                            onClick={() => {
+                              const promptText = isVi
+                                ? "Nhập mã giao dịch (transferRef) để xác nhận chuyển khoản thủ công"
+                                : "Enter transfer reference to verify manual payment";
+                              const suggestedRef = String(row.transactionRef || "").replace(/^manual_/i, "").trim();
+                              const transferRef = window.prompt(promptText, suggestedRef);
+                              const safeTransferRef = String(transferRef || "").trim().toUpperCase();
+                              if (!safeTransferRef) return;
+                              onVerifyManualPayment?.({
+                                userId: row.userId,
+                                method: "bank_transfer",
+                                transferRef: safeTransferRef,
+                                amount: Number(row.amount || 129000) || 129000
+                              });
+                            }}
+                          >
+                            {busy
+                              ? (isVi ? "Đang xử lý..." : "Processing...")
+                              : (isManualPending
+                                ? (isVi ? "Duyệt CK (pending)" : "Verify transfer (pending)")
+                                : (isVi ? "Duyệt CK thủ công" : "Verify manual transfer"))}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

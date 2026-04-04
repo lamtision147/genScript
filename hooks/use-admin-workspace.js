@@ -426,6 +426,37 @@ export function useAdminWorkspace(language = "vi") {
     }
   }
 
+  async function verifyManualPayment({ userId, method = "bank_transfer", transferRef = "", amount = 129000 }) {
+    const safeUserId = String(userId || "").trim();
+    const safeTransferRef = String(transferRef || "").trim().toUpperCase();
+    if (!safeUserId || !safeTransferRef) return;
+
+    setBillingChanging({ userId: safeUserId, action: "manual_verify" });
+    try {
+      await apiPost(routes.api.adminBillingManualVerify, {
+        userId: safeUserId,
+        method,
+        transferRef: safeTransferRef,
+        amount
+      });
+
+      setMessage("");
+      setMessageCode("billing_manual_verify_success");
+
+      const data = await apiGet(
+        `${routes.api.adminBillingSubscriptions}?q=${encodeURIComponent(billingQuery)}&page=${billingPage}&pageSize=20`,
+        { items: [], meta: INITIAL_META }
+      );
+      setBillingSubscriptions(Array.isArray(data?.items) ? data.items : []);
+      setBillingMeta(data?.meta || INITIAL_META);
+    } catch (error) {
+      setMessage(error.message || getAdminErrorMessage(language, "load"));
+      setMessageCode("billing_manual_verify_failed");
+    } finally {
+      setBillingChanging({ userId: "", action: "" });
+    }
+  }
+
   function exportBillingCsv() {
     if (typeof window === "undefined") return;
     window.open(routes.api.adminBillingExport, "_blank", "noopener,noreferrer");
@@ -476,6 +507,7 @@ export function useAdminWorkspace(language = "vi") {
       setBillingQuery,
       setBillingPage,
       updateUserPlan,
+      verifyManualPayment,
       exportBillingCsv,
       updateSupportRequest,
       sendSupportReply,

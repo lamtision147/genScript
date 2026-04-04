@@ -160,6 +160,7 @@ export default function NextAdminPage() {
           onExport={actions.exportBillingCsv}
           onUpgrade={(userId) => actions.updateUserPlan(userId, "pro")}
           onDowngrade={(userId) => actions.updateUserPlan(userId, "free")}
+          onVerifyManualPayment={actions.verifyManualPayment}
         />
       </section>
     </NextPageFrame>

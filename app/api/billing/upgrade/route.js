@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
-import { upgradeUserToProAsync } from "@/lib/server/billing-service";
+import { registerManualPaymentIntentAsync, upgradeUserToProAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
+import { buildUpgradeTransferNote, MANUAL_PRO_PAYMENT } from "@/lib/manual-payment-config";
 
 const SUPPORTED_METHODS = new Set(["card", "bank_transfer", "momo", "zalopay"]);
 
@@ -51,13 +52,22 @@ export async function POST(request) {
 
     const cardLast4 = method === "card" ? sanitizeCardLast4(cardNumber) : "";
 
-    const planInfo = await upgradeUserToProAsync(user.id, {
-      provider: `mock_${method}`,
-      transactionRef,
-      amount: 129000,
-      currency: "VND",
-      cardLast4
-    });
+    const amount = Number(MANUAL_PRO_PAYMENT.amount || 129000);
+    const isManualMethod = method !== "card";
+    const planInfo = isManualMethod
+      ? await registerManualPaymentIntentAsync(user.id, {
+        method,
+        transferRef,
+        amount,
+        currency: MANUAL_PRO_PAYMENT.currency || "VND"
+      })
+      : await upgradeUserToProAsync(user.id, {
+        provider: `mock_${method}`,
+        transactionRef,
+        amount,
+        currency: MANUAL_PRO_PAYMENT.currency || "VND",
+        cardLast4
+      });
 
     logInfo(ctx, "billing.upgrade.success", {
       userId: user.id,
@@ -69,15 +79,17 @@ export async function POST(request) {
 
     return withRequestId(NextResponse.json({
       ok: true,
+      pendingManualVerification: isManualMethod,
       planInfo,
       receipt: {
         method,
-        transactionRef,
-        amount: 129000,
-        currency: "VND",
+        transactionRef: isManualMethod ? `manual_${transferRef}` : transactionRef,
+        amount,
+        currency: MANUAL_PRO_PAYMENT.currency || "VND",
         cardLast4,
         payerName: method === "card" ? cardHolder : payerName,
-        transferRef: method === "card" ? "" : transferRef
+        transferRef: method === "card" ? "" : transferRef,
+        transferNote: method === "card" ? "" : buildUpgradeTransferNote(transferRef)
       }
     }), ctx);
   } catch (error) {

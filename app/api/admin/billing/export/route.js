@@ -11,7 +11,7 @@ function ensureAdmin(user) {
 }
 
 function buildCsv(items = []) {
-  const header = ["userId", "email", "name", "plan", "status", "provider", "amount", "currency", "upgradedAt", "updatedAt"];
+  const header = ["userId", "email", "name", "plan", "status", "provider", "transactionRef", "amount", "currency", "upgradedAt", "updatedAt"];
   const rows = [header.join(",")];
 
   for (const item of items) {
@@ -20,10 +20,11 @@ function buildCsv(items = []) {
       item.email || "",
       item.name || "",
       item.plan || "",
-      item.status || "",
-      item.provider || "",
-      String(item.amount || 0),
-      item.currency || "VND",
+        item.status || "",
+        item.provider || "",
+        item.transactionRef || "",
+        String(item.amount || 0),
+        item.currency || "VND",
       item.upgradedAt || "",
       item.updatedAt || ""
     ].map((value) => `"${String(value).replace(/"/g, '""')}"`);
@@ -39,7 +40,7 @@ async function listRows() {
   if (supabase) {
     const { data, error } = await supabase
       .from("billing_subscriptions")
-      .select("user_id,plan,status,provider,amount,currency,upgraded_at,updated_at")
+      .select("user_id,plan,status,provider,transaction_ref,amount,currency,upgraded_at,updated_at")
       .order("updated_at", { ascending: false })
       .limit(5000);
     if (error) throw new Error(error.message || "Unable to load subscription data");
@@ -60,6 +61,7 @@ async function listRows() {
         plan: item.plan || "free",
         status: item.status || "active",
         provider: item.provider || "",
+        transactionRef: item.transaction_ref || "",
         amount: Number(item.amount || 0),
         currency: String(item.currency || "VND").toUpperCase(),
         upgradedAt: item.upgraded_at || "",
@@ -80,6 +82,7 @@ async function listRows() {
       plan: row.plan || "free",
       status: row.status || "active",
       provider: row.provider || "",
+      transactionRef: row.transactionRef || "",
       amount: Number(row.amount || 0),
       currency: String(row.currency || "VND").toUpperCase(),
       upgradedAt: row.upgradedAt || "",
