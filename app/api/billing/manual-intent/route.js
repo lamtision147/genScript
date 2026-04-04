@@ -23,6 +23,10 @@ export async function POST(request) {
     }
 
     const amount = Number(MANUAL_PRO_PAYMENT.amount || 129000);
+    const sepayEnabled = Boolean(
+      String(process.env.SEPAY_MERCHANT_ID || "").trim()
+      && (String(process.env.SEPAY_SECRET_KEY || "").trim() || String(process.env.SEPAY_WEBHOOK_SECRET || "").trim())
+    );
 
     const result = {
       method: String(payload?.method || "bank_transfer").trim().toLowerCase(),
@@ -34,7 +38,10 @@ export async function POST(request) {
       currency: MANUAL_PRO_PAYMENT.currency,
       transferRef,
       transferNote: buildUpgradeTransferNote(transferRef),
-      qrImageUrl: buildVietQrImageUrl({ amount, transferRef })
+      qrImageUrl: buildVietQrImageUrl({ amount, transferRef }),
+      autoVerifyProvider: sepayEnabled ? "sepay" : "",
+      autoVerifyEnabled: sepayEnabled,
+      merchantId: String(process.env.SEPAY_MERCHANT_ID || "").trim()
     };
 
     logInfo(ctx, "billing.manual_intent.created", {

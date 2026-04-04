@@ -387,6 +387,13 @@ export default function NextUpgradePage() {
                                 ? "Chuyển khoản theo thông tin bên dưới, sau đó nhập đúng mã giao dịch để hoàn tất nâng cấp."
                                 : "Transfer with the details below, then submit with your transfer reference to complete upgrade."}
                             </span>
+                            {manualPaymentInfo?.autoVerifyEnabled ? (
+                              <span className="upgrade-provider-chip">
+                                {isVi
+                                  ? `Auto duyệt: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`
+                                  : `Auto verify: SePay${manualPaymentInfo?.merchantId ? ` · ${manualPaymentInfo.merchantId}` : ""}`}
+                              </span>
+                            ) : null}
                           </div>
                           {manualPaymentInfo?.qrImageUrl ? (
                             <div className="upgrade-qr-wrap">
@@ -417,9 +424,13 @@ export default function NextUpgradePage() {
                           </div>
                           <div className="upgrade-gateway-preview-head">
                             <span>
-                              {isVi
-                                ? "Sau khi chuyển khoản xong, nhập đúng mã giao dịch rồi bấm Thanh toán và nâng cấp Pro để gửi yêu cầu duyệt."
-                                : "After transfer, enter the exact transaction reference and click Pay & Upgrade Pro to submit for verification."}
+                              {manualPaymentInfo?.autoVerifyEnabled
+                                ? (isVi
+                                  ? "Hệ thống đang bật auto duyệt qua SePay. Sau khi chuyển khoản đúng nội dung, tài khoản sẽ tự lên Pro trong ít phút."
+                                  : "Auto verification via SePay is enabled. After a correct transfer note, your account should auto-upgrade to Pro shortly.")
+                                : (isVi
+                                  ? "Sau khi chuyển khoản xong, nhập đúng mã giao dịch rồi bấm Thanh toán và nâng cấp Pro để gửi yêu cầu duyệt."
+                                  : "After transfer, enter the exact transaction reference and click Pay & Upgrade Pro to submit for verification.")}
                             </span>
                           </div>
                           <div className="upgrade-actions-stack">
