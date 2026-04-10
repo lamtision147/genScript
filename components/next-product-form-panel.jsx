@@ -9,6 +9,8 @@ import NextTextareaField from "@/components/next-textarea-field";
 import { getCopy } from "@/lib/i18n";
 import { routes } from "@/lib/routes";
 
+const FREE_STYLE_PRESET_VALUES = new Set(["balanced", "expert", "lifestyle"]);
+
 function textLineCount(value) {
   if (!value) return 0;
   return String(value)
@@ -31,10 +33,30 @@ function inferStylePresetValue(form = {}) {
 
 function normalizeStylePresetValue(value, fallback = "balanced") {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["balanced", "expert", "sales", "lifestyle", "custom"].includes(normalized)) {
+  if ([
+    "balanced",
+    "expert",
+    "sales",
+    "lifestyle",
+    "storytelling",
+    "socialproof",
+    "comparison",
+    "benefitstack",
+    "problemfirst",
+    "premium",
+    "urgencysoft",
+    "educational",
+    "community",
+    "minimalist",
+    "custom"
+  ].includes(normalized)) {
     return normalized;
   }
   return fallback;
+}
+
+function isFreeAllowedStylePreset(value) {
+  return FREE_STYLE_PRESET_VALUES.has(normalizeStylePresetValue(value, "balanced"));
 }
 
 export default function NextProductFormPanel({
@@ -82,6 +104,7 @@ export default function NextProductFormPanel({
   const isPro = String(sessionPlan || "free") === "pro";
   const [showProVariantPopup, setShowProVariantPopup] = useState(false);
   const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
+  const [stylePresetFilter, setStylePresetFilter] = useState(isPro ? "all" : "free");
   const stylePresetValue = inferStylePresetValue(form);
   const [portalReady, setPortalReady] = useState(false);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
@@ -91,6 +114,16 @@ export default function NextProductFormPanel({
         { value: "expert", label: "Chuyên gia thuyết phục" },
         { value: "sales", label: "Chốt sale mạnh" },
         { value: "lifestyle", label: "Lifestyle gần gũi" },
+        { value: "storytelling", label: "Kể chuyện chân thật" },
+        { value: "socialproof", label: "Chứng thực xã hội" },
+        { value: "comparison", label: "So sánh trước/sau" },
+        { value: "benefitstack", label: "Chuỗi lợi ích" },
+        { value: "problemfirst", label: "Nỗi đau trước" },
+        { value: "premium", label: "Premium sang trọng" },
+        { value: "urgencysoft", label: "Khẩn nhẹ" },
+        { value: "educational", label: "Giáo dục dễ hiểu" },
+        { value: "community", label: "Cộng đồng tin cậy" },
+        { value: "minimalist", label: "Tối giản rõ ý" },
         { value: "custom", label: "Tùy chỉnh thủ công" }
       ]
     : [
@@ -98,13 +131,67 @@ export default function NextProductFormPanel({
         { value: "expert", label: "Expert persuasive" },
         { value: "sales", label: "Hard close" },
         { value: "lifestyle", label: "Warm lifestyle" },
+        { value: "storytelling", label: "Storytelling" },
+        { value: "socialproof", label: "Social proof" },
+        { value: "comparison", label: "Before/after" },
+        { value: "benefitstack", label: "Benefit stack" },
+        { value: "problemfirst", label: "Problem-first" },
+        { value: "premium", label: "Premium" },
+        { value: "urgencysoft", label: "Soft urgency" },
+        { value: "educational", label: "Educational" },
+        { value: "community", label: "Community" },
+        { value: "minimalist", label: "Minimalist" },
         { value: "custom", label: "Custom manual" }
       ];
+  const freeStylePresetOptions = stylePresetOptions.filter((option) => isFreeAllowedStylePreset(option.value));
+  const proOnlyStylePresetOptions = stylePresetOptions.filter((option) => !isFreeAllowedStylePreset(option.value));
+  const proStyleTagText = language === "vi" ? "Pro" : "Pro";
+  const proOnlyStylePresetOptionsWithTag = proOnlyStylePresetOptions.map((option) => ({
+    ...option,
+    label: `${option.label} (${proStyleTagText})`
+  }));
+  const allStylePresetOptionsWithTag = stylePresetOptions.map((option) => (
+    isFreeAllowedStylePreset(option.value)
+      ? option
+      : {
+          ...option,
+          label: `${option.label} (${proStyleTagText})`
+        }
+  ));
+  const stylePresetFilterOptions = [
+    { value: "free", label: language === "vi" ? `Thường (${freeStylePresetOptions.length})` : `Free (${freeStylePresetOptions.length})` },
+    { value: "pro", label: language === "vi" ? `Pro (${proOnlyStylePresetOptions.length})` : `Pro (${proOnlyStylePresetOptions.length})` },
+    { value: "all", label: language === "vi" ? `Tất cả (${stylePresetOptions.length})` : `All (${stylePresetOptions.length})` }
+  ];
+  const stylePresetOptionsForSelect = (() => {
+    if (stylePresetFilter === "pro") {
+      return proOnlyStylePresetOptionsWithTag.length ? proOnlyStylePresetOptionsWithTag : allStylePresetOptionsWithTag;
+    }
+    if (stylePresetFilter === "all") {
+      return allStylePresetOptionsWithTag;
+    }
+    return freeStylePresetOptions;
+  })();
   const variantStylePresetOptions = stylePresetOptions.filter((option) => option.value !== "custom");
   const resolvedVariantStylePresets = (() => {
     const targetCount = isPro ? normalizedVariantCount : 1;
     const inferred = normalizeStylePresetValue(stylePresetValue, "balanced");
-    const sequence = ["balanced", "expert", "sales", "lifestyle"];
+    const sequence = [
+      "balanced",
+      "expert",
+      "sales",
+      "lifestyle",
+      "storytelling",
+      "socialproof",
+      "comparison",
+      "benefitstack",
+      "problemfirst",
+      "premium",
+      "urgencysoft",
+      "educational",
+      "community",
+      "minimalist"
+    ];
     const seed = sequence.includes(inferred) ? inferred : "balanced";
     const rotation = [seed, ...sequence.filter((item) => item !== seed)];
     const next = [];
@@ -129,6 +216,12 @@ export default function NextProductFormPanel({
     setPortalReady(true);
     return () => setPortalReady(false);
   }, []);
+
+  useEffect(() => {
+    if (!isPro && stylePresetFilter === "all") {
+      setStylePresetFilter("free");
+    }
+  }, [isPro, stylePresetFilter]);
 
   useEffect(() => {
     if (!showProVariantPopup) return undefined;
@@ -231,17 +324,8 @@ export default function NextProductFormPanel({
         className={`panel-section strong form-stage ${suggestion ? "is-suggested" : ""} ${suggestionPulseToken ? "pulse-highlight" : ""}`}
         data-pulse-token={suggestionPulseToken || "0"}
       >
-        <div className="field-helper">{language === "vi" ? "Mẹo: tải ảnh trước, bấm Gợi ý tự động để AI điền nhanh danh mục, tone và mô tả." : "Tip: upload images first, then click Auto Suggest to prefill category, tone, and description."}</div>
+        <div className="field-helper">{language === "vi" ? "Mẹo: tải ảnh trước, bấm Gợi ý tự động để hệ thống điền nhanh danh mục, tone và mô tả." : "Tip: upload images first, then click Auto Suggest to prefill category, tone, and description."}</div>
         <div className="field-helper">{language === "vi" ? "Shopee tip: chọn ngành hàng + template ngách để brief sát phân khúc hơn, tỉ lệ chuyển đổi tốt hơn." : "Shopee tip: pick category + niche template for sharper positioning and better conversion."}</div>
-            <div className="field-helper group-filter-hint">
-              {language === "vi"
-                ? "Lọc danh mục theo ngành hàng lớn:"
-                : "Filter categories by major vertical:"}
-          <span className="tag">{language === "vi" ? "Thời trang, làm đẹp" : "Fashion and beauty"}</span>
-          <span className="tag">{language === "vi" ? "Điện tử, công nghệ" : "Electronics and tech"}</span>
-          <span className="tag">{language === "vi" ? "Mẹ bé, sức khỏe" : "Mother baby and health"}</span>
-          <span className="tag">{language === "vi" ? "Nhà cửa, đời sống" : "Home and living"}</span>
-            </div>
             {suggesting ? (
               <div className="analysis-progress-card" role="status" aria-live="polite">
                 <div className="analysis-progress-visual" aria-hidden="true">
@@ -251,7 +335,7 @@ export default function NextProductFormPanel({
                 </div>
                 <div className="analysis-progress-copy">
                   <strong>{language === "vi" ? "Đang phân tích ảnh và đồng bộ form..." : "Analyzing images and syncing form..."}</strong>
-                  <span>{language === "vi" ? "Bạn có thể chờ vài giây để AI cập nhật chính xác nhóm ngành, template và mô tả." : "Please wait a few seconds while AI updates category, template and description."}</span>
+                  <span>{language === "vi" ? "Bạn có thể chờ vài giây để hệ thống cập nhật chính xác nhóm ngành, template và mô tả." : "Please wait a few seconds while the system updates category, template and description."}</span>
                 </div>
               </div>
             ) : null}
@@ -276,9 +360,12 @@ export default function NextProductFormPanel({
               <NextSelectField label={copy.form.category} value={form.category} options={categoryOptions} onChange={onCategoryChange} />
               <NextSelectField
                 label={language === "vi" ? "Template ngành hàng" : "Industry template"}
-                value={form.subcategory}
-                options={currentSubcategories}
-                onChange={(value) => onFieldChange("subcategory", Number(value))}
+                value={form.industryPreset || filteredIndustryPresets?.[0]?.value || ""}
+                options={(filteredIndustryPresets || []).map((item) => ({
+                  value: item.value,
+                  label: item.label
+                }))}
+                onChange={(value) => onFieldChange("industryPreset", value)}
               />
             </div>
 
@@ -431,16 +518,39 @@ export default function NextProductFormPanel({
                   <NextSelectField
                     label={language === "vi" ? "Phong cách nội dung" : "Content style"}
                     value={resolvedVariantStylePresets[0] || stylePresetValue}
-                    options={stylePresetOptions}
-                    onChange={(value) => onVariantStylePresetChange?.(0, value)}
+                    options={stylePresetOptionsForSelect}
+                    onChange={(value) => {
+                      const normalizedValue = normalizeStylePresetValue(value, "balanced");
+                      if (!isPro && !isFreeAllowedStylePreset(normalizedValue)) {
+                        openProVariantPopup();
+                        return;
+                      }
+                      onVariantStylePresetChange?.(0, normalizedValue);
+                    }}
                   />
                 )}
+
+              <div className="style-filter-row">
+                <span className="style-filter-label">{language === "vi" ? "Bộ lọc danh sách phong cách" : "Style list filter"}</span>
+                <div className="style-filter-chips" role="group" aria-label={language === "vi" ? "Bộ lọc phong cách" : "Style filters"}>
+                  {stylePresetFilterOptions.map((option) => (
+                    <button
+                      key={`product-style-filter-${option.value}`}
+                      type="button"
+                      className={`ghost-button style-filter-chip ${stylePresetFilter === option.value ? "active" : ""}`}
+                      onClick={() => setStylePresetFilter(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {!isPro ? (
                 <p className="field-helper">
                   {language === "vi"
-                    ? "Gói Free mặc định 1 bản. Khi chọn từ 2 bản, hệ thống sẽ mở popup nâng cấp Pro."
-                    : "Free plan is fixed at 1 variant. Selecting 2+ variants opens the Pro upgrade popup."}
+                    ? "Gói Free: dùng 1 bản và 3 phong cách (Cân bằng, Chuyên gia, Lifestyle). Chọn phong cách gắn (Pro) sẽ mở popup nâng cấp."
+                    : "Free plan: 1 variant and 3 styles (Balanced, Expert, Lifestyle). Selecting a (Pro) style opens the upgrade popup."}
                 </p>
               ) : (
                 <p className="field-helper">

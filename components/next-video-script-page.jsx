@@ -164,6 +164,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const [portalReady, setPortalReady] = useState(false);
   const [switchingVariant, setSwitchingVariant] = useState(false);
   const [pendingVariantIndex, setPendingVariantIndex] = useState(-1);
+  const [stylePresetFilter, setStylePresetFilter] = useState(isProPlan ? "all" : "free");
   const variantSwitchTimeoutRef = useRef(null);
   const outputPanelRef = useRef(null);
   const categoryGroupOptions = getCategoryGroupOptions(language);
@@ -254,15 +255,35 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay.`
       : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today.`);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
-  const stylePresetOptionsForSelect = variantStylePresetOptions.map((option) => {
-    if (isProPlan || FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value)) {
-      return option;
+  const freeStylePresetOptions = variantStylePresetOptions.filter((option) => FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value));
+  const proOnlyStylePresetOptions = variantStylePresetOptions.filter((option) => !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value));
+  const proStyleTagText = isVi ? "Pro" : "Pro";
+  const proOnlyStylePresetOptionsWithTag = proOnlyStylePresetOptions.map((option) => ({
+    ...option,
+    label: `${option.label} (${proStyleTagText})`
+  }));
+  const allStylePresetOptionsWithTag = variantStylePresetOptions.map((option) => (
+    FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value)
+      ? option
+      : {
+          ...option,
+          label: `${option.label} (${proStyleTagText})`
+        }
+  ));
+  const stylePresetFilterOptions = [
+    { value: "free", label: isVi ? `Thường (${freeStylePresetOptions.length})` : `Free (${freeStylePresetOptions.length})` },
+    { value: "pro", label: isVi ? `Pro (${proOnlyStylePresetOptions.length})` : `Pro (${proOnlyStylePresetOptions.length})` },
+    { value: "all", label: isVi ? `Tất cả (${variantStylePresetOptions.length})` : `All (${variantStylePresetOptions.length})` }
+  ];
+  const stylePresetOptionsForSelect = (() => {
+    if (stylePresetFilter === "pro") {
+      return proOnlyStylePresetOptionsWithTag.length ? proOnlyStylePresetOptionsWithTag : allStylePresetOptionsWithTag;
     }
-    return {
-      value: option.value,
-      label: `${option.label} (${isVi ? "Pro" : "Pro"})`
-    };
-  });
+    if (stylePresetFilter === "all") {
+      return allStylePresetOptionsWithTag;
+    }
+    return freeStylePresetOptions;
+  })();
   const resolvedVariantStylePresets = (() => {
     const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0;
     const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];
@@ -279,6 +300,13 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       }
     }
     return next;
+  })();
+  const displayedVariantStylePresets = (() => {
+    const optionValues = new Set(stylePresetOptionsForSelect.map((option) => option.value));
+    const fallback = stylePresetOptionsForSelect[0]?.value || "balanced";
+    return resolvedVariantStylePresets.map((preset) => (
+      optionValues.has(preset) ? preset : fallback
+    ));
   })();
 
   const selectedVariantIndex = Number.isFinite(Number(result?.selectedVariant)) ? Number(result.selectedVariant) : 0;
@@ -320,6 +348,12 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     setPortalReady(true);
     return () => setPortalReady(false);
   }, []);
+
+  useEffect(() => {
+    if (!isProPlan && stylePresetFilter === "all") {
+      setStylePresetFilter("free");
+    }
+  }, [isProPlan, stylePresetFilter]);
 
   useEffect(() => {
     return () => {
@@ -829,7 +863,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                   <NextSelectField
                     key={`video-variant-style-${index + 1}`}
                     label={isVi ? `Phong cách nội dung bản ${index + 1}` : `Variant ${index + 1} style`}
-                    value={String(resolvedVariantStylePresets[index] ?? "balanced")}
+                    value={String(displayedVariantStylePresets[index] ?? "balanced")}
                     options={stylePresetOptionsForSelect}
                     onChange={(value) => handleStyleSelect(index, value)}
                   />
@@ -837,11 +871,27 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 : (
                   <NextSelectField
                     label={isVi ? "Phong cách nội dung" : "Content style"}
-                    value={String(resolvedVariantStylePresets[0] || "balanced")}
+                    value={String(displayedVariantStylePresets[0] || "balanced")}
                     options={stylePresetOptionsForSelect}
                     onChange={(value) => handleStyleSelect(0, value)}
                   />
                 )}
+
+              <div className="style-filter-row">
+                <span className="style-filter-label">{isVi ? "Bộ lọc danh sách phong cách" : "Style list filter"}</span>
+                <div className="style-filter-chips" role="group" aria-label={isVi ? "Bộ lọc phong cách" : "Style filters"}>
+                  {stylePresetFilterOptions.map((option) => (
+                    <button
+                      key={`video-style-filter-${option.value}`}
+                      type="button"
+                      className={`ghost-button style-filter-chip ${stylePresetFilter === option.value ? "active" : ""}`}
+                      onClick={() => setStylePresetFilter(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {!isProPlan ? (
                 <p className="field-helper">

@@ -202,6 +202,7 @@ test.describe("Video Script Page", () => {
     await page.getByLabel("Số bản nội dung").selectOption("2");
     await expect(page.getByLabel("Phong cách nội dung bản 1")).toBeVisible();
     await expect(page.getByLabel("Phong cách nội dung bản 2")).toBeVisible();
+    await page.getByRole("button", { name: /Tất cả|All/ }).click();
     await page.getByLabel("Phong cách nội dung bản 1").selectOption("sales");
     await page.getByLabel("Phong cách nội dung bản 2").selectOption("balanced");
 
@@ -468,9 +469,15 @@ test.describe("Video Script Page", () => {
     const options = await styleSelect.locator("option").evaluateAll((nodes) =>
       nodes.map((node) => ({ value: node.getAttribute("value"), text: node.textContent || "" }))
     );
-    expect(options).toHaveLength(14);
-    expect(options[2].text).toContain("(Pro)");
-    expect(options[4].text).toContain("(Pro)");
+    expect(options).toHaveLength(3);
+
+    await page.getByRole("button", { name: /Tất cả|All/ }).click();
+    const allOptions = await styleSelect.locator("option").evaluateAll((nodes) =>
+      nodes.map((node) => ({ value: node.getAttribute("value"), text: node.textContent || "" }))
+    );
+    expect(allOptions).toHaveLength(14);
+    expect(allOptions[2].text).toContain("(Pro)");
+    expect(allOptions[4].text).toContain("(Pro)");
 
     await styleSelect.selectOption("storytelling");
     await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
