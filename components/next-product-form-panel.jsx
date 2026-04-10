@@ -56,6 +56,7 @@ function inferStylePresetValue(form = {}) {
   const mood = Number(form?.mood);
 
   if (tone === 1 && brandStyle === 2 && mood === 3) return "expert";
+  if (tone === 1 && brandStyle === 0 && mood === 3) return "expert";
   if (tone === 2 && brandStyle === 1 && mood === 3) return "sales";
   if (tone === 0 && brandStyle === 1 && mood === 1) return "lifestyle";
   if (tone === 0 && brandStyle === 0 && mood === 0) return "balanced";
