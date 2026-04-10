@@ -564,6 +564,7 @@ test.describe("Video Script Page", () => {
     await ensureLanguage(page, "vi");
 
     const styleSelect = page.getByLabel("Phong cách nội dung");
+    await page.getByRole("button", { name: /Tất cả|All/ }).click();
     await styleSelect.selectOption("storytelling");
     await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
     await page.getByRole("button", { name: /Tiếp tục với 1 bản/i }).click();
