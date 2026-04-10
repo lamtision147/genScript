@@ -1070,6 +1070,18 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         && mode === "manual"
       );
 
+      const shouldSuppressMismatchWarning = Boolean(
+        resolvedCategory === "phoneTablet"
+        && /(op\s*lung|ốp\s*lưng|phone\s*case|case\s*iphone|case\s*android|cover\s*phone|kinh\s*cuong\s*luc|man\s*hinh\s*cuong\s*luc|phu\s*kien\s*(dien\s*thoai|tablet)|magsafe|gia\s*do\s*(dien\s*thoai|tablet)|sac\s*(dien\s*thoai|tablet)|cap\s*(sac|ket\s*noi))/.test(
+          normalizeTextForCategoryCheck([
+            nextProductName || requestProductName,
+            suggested?.shortDescription || "",
+            ...(Array.isArray(suggested?.highlights) ? suggested.highlights : []),
+            ...(Array.isArray(suggested?.attributes) ? suggested.attributes.map((item) => (typeof item === "string" ? item : item?.value || "")) : [])
+          ].join(" "))
+        )
+      );
+
       const suggestedGroup = getCategoryGroupValue(resolvedCategory);
       const canApplySuggestedCategory = getCategoryValuesByGroup(suggestedGroup).includes(resolvedCategory);
 
@@ -1257,7 +1269,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           ? "Chưa nhận dạng được tên sản phẩm từ ảnh. Vui lòng dùng ảnh rõ sản phẩm hoặc nhập tên thủ công."
           : "Unable to identify product name from image yet. Please upload a clearer image or enter product name manually.");
         trackEvent("image.suggest.name_not_detected", { mode, category: canApplySuggestedCategory ? resolvedCategory : form.category });
-      } else if (shouldWarnMismatch) {
+      } else if (shouldWarnMismatch && !shouldSuppressMismatchWarning) {
         setMessage(language === "vi"
           ? "Ảnh và tên sản phẩm đang mâu thuẫn, vui lòng xác nhận lại trước khi áp dụng template."
           : "Image and product name conflict. Please verify before applying templates.");

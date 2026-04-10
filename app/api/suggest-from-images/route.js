@@ -885,7 +885,15 @@ function buildAiNameDrivenSuggestion({ rawSuggestion = {}, lang = "vi", images =
   const inferredFromName = hasDetectedName
     ? (inferCategoryFromProductName(aiName) || "")
     : "";
-  const finalCategory = normalizeCategory(inferredFromName || "other", "other");
+  const inferredFromFileName = inferCategoryFromImageFileName(images) || "";
+  const fileSignals = resolveFileHintSignals(images);
+  const rawCategory = inferredFromName || inferredFromFileName || "other";
+  const refinedCategory = refineAiSuggestedCategoryWithFileSignals({
+    suggestedCategory: rawCategory,
+    inferredCategory: inferredFromName || inferredFromFileName || "",
+    fileSignals
+  });
+  const finalCategory = normalizeCategory(refinedCategory || rawCategory || "other", "other");
   const defaults = getMarketplaceDefaults(finalCategory, undefined);
   const rawConfidence = clampNumber(source?.confidence, 0, 1, hasDetectedName ? 0.78 : 0.22);
 
@@ -915,6 +923,21 @@ function buildAiNameDrivenSuggestion({ rawSuggestion = {}, lang = "vi", images =
     analysisState: hasDetectedName ? "name_detected" : "no_data",
     notes: [...baseNotes, ...sourceNotes].slice(0, 3)
   };
+
+  if (finalCategory === "phoneTablet" && shouldPreferPhoneAccessoryPreset({
+    productName: aiName,
+    generatedProductName: aiName,
+    highlights: source?.highlights,
+    attributes: source?.attributes,
+    shortDescription: source?.shortDescription
+  })) {
+    suggestion.notes = [
+      ...suggestion.notes,
+      lang === "vi"
+        ? "Tín hiệu cho thấy đây là phụ kiện điện thoại/tablet (ốp/kính/sạc)."
+        : "Signals indicate this is a phone/tablet accessory (case/screen/charging)."
+    ].slice(0, 4);
+  }
 
   const sourceFacts = hasDetectedName && source.facts && typeof source.facts === "object"
     ? source.facts
