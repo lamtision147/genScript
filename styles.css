@@ -2960,8 +2960,8 @@ html[data-theme="dark"] .result-readability-hint {
   min-height: 72px;
   outline: none;
   white-space: pre-wrap;
-  font-size: 17px;
-  line-height: 1.78;
+  font-size: 19px;
+  line-height: 1.8;
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(56, 39, 24, 0.08);
@@ -3017,8 +3017,8 @@ html[data-theme="dark"] .textarea-block:hover {
   padding: 8px 10px;
   border-radius: 10px;
   margin-top: 8px;
-  font-size: 16px;
-  line-height: 1.72;
+  font-size: 19px;
+  line-height: 1.78;
 }
 
 .video-scene-spacer {
