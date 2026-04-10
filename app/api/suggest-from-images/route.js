@@ -16,6 +16,44 @@ const SUGGEST_ERROR_NOTE_BY_LANG = {
 
 const MIN_IMAGE_DATA_URL_LENGTH = 1200;
 const MIN_STRONG_IMAGE_DATA_URL_LENGTH = 2200;
+const IMAGE_FILE_HINT_PATTERNS = {
+  monitor: /\b(monitor|man\s*hinh|display|screen|ultrawide|ips|lcd|led)\b/i,
+  headphone: /\b(earbud|headphone|tai[-\s]*nghe|airpod|speaker|loa)\b/i,
+  keyboard: /\b(keyboard|ban\s*phim|keycap|switch)\b/i,
+  mouse: /\b(mouse|chuot)\b/i,
+  laptop: /\b(laptop|macbook|notebook|ultrabook|pc)\b/i,
+  phone: /\b(phone|iphone|android|smartphone|tablet|ipad|op[-\s]*lung|case|cover|magsafe|kinh\s*cuong\s*luc)\b/i,
+  sleepwear: /\b(sleepwear|do\s*ngu|pajama|pyjama)\b/i,
+  skincare: /\b(skincare|serum|cleanser|toner|kem\s*duong|sua\s*rua|sunscreen)\b/i
+};
+const IMAGE_FILE_BRAND_HINTS = new Set([
+  "apple",
+  "iphone",
+  "samsung",
+  "xiaomi",
+  "oppo",
+  "vivo",
+  "huawei",
+  "realme",
+  "nokia",
+  "google",
+  "asus",
+  "lenovo",
+  "hp",
+  "dell",
+  "acer",
+  "msi",
+  "lg",
+  "sony",
+  "canon",
+  "nikon",
+  "dji",
+  "gopro",
+  "anker",
+  "baseus",
+  "ugreen",
+  "belkin"
+]);
 const VALID_SUGGEST_CATEGORIES = new Set([
   "fashion", "skincare", "beautyTools", "home", "furnitureDecor", "electronics", "food", "householdEssentials",
   "footwear", "bags", "accessories", "fragrance", "pet", "sports", "motherBaby", "healthCare",
@@ -455,6 +493,19 @@ function buildBestEffortPrefill(category, lang) {
 function getImageNameSignalText(images = []) {
   return (Array.isArray(images) ? images : [])
     .map((image) => normalizeForSignal(String(image?.name || "").replace(/[_-]+/g, " ")))
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getImagePixelSignalText(images = []) {
+  return (Array.isArray(images) ? images : [])
+    .map((image) => {
+      const width = Number(image?.width);
+      const height = Number(image?.height);
+      const widthText = Number.isFinite(width) ? String(Math.floor(width)) : "";
+      const heightText = Number.isFinite(height) ? String(Math.floor(height)) : "";
+      return `${widthText}x${heightText}`.trim();
+    })
     .filter(Boolean)
     .join(" ");
 }
