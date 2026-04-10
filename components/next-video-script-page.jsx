@@ -289,7 +289,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const resolvedVariantStylePresets = (() => {
     const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 4;
     const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];
-    const fallbackPreset = openingToPreset[Math.max(0, Math.min(4, seedStyle))] || "expert";
+    const fallbackPreset = "expert";
     const size = isProPlan ? normalizedVariantCount : 1;
     const allowed = new Set(variantStylePresetOptions.map((item) => item.value));
     const next = [];
@@ -403,7 +403,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   }
 
   function handleStyleSelect(index, value) {
-    const nextValue = String(value || "balanced").trim().toLowerCase();
+    const nextValue = String(value || "expert").trim().toLowerCase();
     if (!isProPlan && !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(nextValue)) {
       openProVariantPopup(index > 0 ? Math.max(2, normalizedVariantCount) : 2);
       return;
@@ -853,7 +853,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                   <NextSelectField
                     key={`video-variant-style-${index + 1}`}
                     label={isVi ? `Phong cách nội dung bản ${index + 1}` : `Variant ${index + 1} style`}
-                    value={String(displayedVariantStylePresets[index] ?? "balanced")}
+                    value={String(displayedVariantStylePresets[index] ?? "expert")}
                     options={stylePresetOptionsForSelect}
                     onChange={(value) => handleStyleSelect(index, value)}
                   />
@@ -861,7 +861,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 : (
                   <NextSelectField
                     label={isVi ? "Phong cách nội dung" : "Content style"}
-                    value={String(displayedVariantStylePresets[0] || "balanced")}
+                    value={String(displayedVariantStylePresets[0] || "expert")}
                     options={stylePresetOptionsForSelect}
                     onChange={(value) => handleStyleSelect(0, value)}
                   />

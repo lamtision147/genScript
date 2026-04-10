@@ -513,7 +513,7 @@ export default function NextProductFormPanel({
                 : (
                   <NextSelectField
                     label={language === "vi" ? "Phong cách nội dung" : "Content style"}
-                    value={resolvedVariantStylePresets[0] || stylePresetValue}
+                    value={resolvedVariantStylePresets[0] || "expert"}
                     options={stylePresetOptionsForSelect}
                     onChange={(value) => {
                       const normalizedValue = normalizeStylePresetValue(value, "balanced");

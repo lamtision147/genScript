@@ -128,10 +128,10 @@ function isSameStylePresetList(left = [], right = []) {
   return true;
 }
 
-function buildVariantStylePresetList(count = 1, seedPreset = "balanced", existing = []) {
+function buildVariantStylePresetList(count = 1, seedPreset = "expert", existing = []) {
   const size = Math.max(1, Math.min(5, Number(count) || 1));
-  const normalizedSeed = normalizeVideoStylePreset(seedPreset, "balanced");
-  const firstStyle = VIDEO_STYLE_PRESET_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "balanced";
+  const normalizedSeed = normalizeVideoStylePreset(seedPreset, "expert");
+  const firstStyle = VIDEO_STYLE_PRESET_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "expert";
   const rotation = [firstStyle, ...VIDEO_STYLE_PRESET_SEQUENCE.filter((item) => item !== firstStyle)];
   const next = [];
 
@@ -142,7 +142,7 @@ function buildVariantStylePresetList(count = 1, seedPreset = "balanced", existin
         next.push(preset);
         continue;
       }
-      next.push(rotation[index % rotation.length] || "balanced");
+      next.push(rotation[index % rotation.length] || "expert");
       continue;
     }
     next.push(normalizedSeed);
@@ -155,7 +155,7 @@ function deriveVariantStylePresetsFromVariants(variants = [], isProPlan = false,
   const source = Array.isArray(variants) ? variants : [];
   const fallbackPreset = videoOpeningStyleToPreset(fallbackOpeningStyle);
   if (!source.length) {
-    return [coerceVideoStylePresetForPlan(fallbackPreset, isProPlan, "balanced")];
+    return [coerceVideoStylePresetForPlan(fallbackPreset, isProPlan, "expert")];
   }
 
   return coerceVideoStylePresetListForPlan(
@@ -603,7 +603,7 @@ export function createEmptyVideoForm() {
     durationSec: 45,
     priceSegment: "mid",
     mood: defaults.moodVi,
-    openingStyle: defaults.openingStyle,
+    openingStyle: 4,
     scriptMode: "standard",
     industryPreset: "",
     usage: "",
@@ -955,13 +955,13 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       durationSec: 45,
       priceSegment: "mid",
       mood: isVi ? defaults.moodVi : defaults.moodEn,
-      openingStyle: defaults.openingStyle,
+      openingStyle: 4,
         scriptMode: "standard",
         industryPreset: ""
       });
     setVariantCount(1);
-    setVariantStylePresets([coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced")]);
-    setVariantOpeningStyles([coerceOpeningStyleForPlan(defaults.openingStyle, isProPlan, 0)]);
+    setVariantStylePresets([coerceVideoStylePresetForPlan("expert", isProPlan, "expert")]);
+    setVariantOpeningStyles([coerceOpeningStyleForPlan(4, isProPlan, 0)]);
   }
 
   function applyIndustryTemplate() {
@@ -982,7 +982,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       industryPreset: template.value || prev.industryPreset
     }));
     setVariantStylePresets((prev) => {
-      const stylePreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(template.openingStyle), isProPlan, "balanced");
+      const stylePreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(template.openingStyle), isProPlan, "expert");
       if (!Array.isArray(prev) || !prev.length) return [stylePreset];
       const next = [...prev];
       next[0] = stylePreset;
@@ -997,7 +997,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     setResult(null);
     setMessage("");
     setVariantCount(1);
-    setVariantStylePresets([coerceVideoStylePresetForPlan("balanced", isProPlan, "balanced")]);
+    setVariantStylePresets([coerceVideoStylePresetForPlan("expert", isProPlan, "expert")]);
     setVariantOpeningStyles([coerceOpeningStyleForPlan(0, isProPlan, 0)]);
   }
 
@@ -1105,12 +1105,12 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ...prev,
         category: value,
         channel: defaults.channel,
-        openingStyle: defaults.openingStyle,
+        openingStyle: 4,
         mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
         industryPreset: presets[0]?.value || ""
       }));
       setVariantStylePresets((prev) => {
-        const stylePreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced");
+        const stylePreset = coerceVideoStylePresetForPlan("expert", isProPlan, "expert");
         if (!Array.isArray(prev) || !prev.length) return [stylePreset];
         const next = [...prev];
         next[0] = stylePreset;
@@ -1137,7 +1137,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       }));
       setVariantStylePresets((prev) => {
         const nextStyle = Math.max(0, Math.min(4, Number(styleDefaults.tone) || defaults.openingStyle));
-        const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "balanced");
+        const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "expert");
         if (!Array.isArray(prev) || !prev.length) return [nextPreset];
         const next = [...prev];
         next[0] = nextPreset;
@@ -1174,7 +1174,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     setForm((prev) => ({ ...prev, [key]: value }));
     if (key === "openingStyle") {
       const nextStyle = clampOpeningStyle(value, 0);
-      const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "balanced");
+      const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "expert");
       setVariantStylePresets((prev) => {
         if (!Array.isArray(prev) || !prev.length) return [nextPreset];
         const next = [...prev];
@@ -1250,7 +1250,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           productName: shouldUseGeneratedName ? generatedName : prev.productName,
           category: resolvedCategory,
           channel: defaults.channel,
-          openingStyle: defaults.openingStyle,
+          openingStyle: 4,
           mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
           durationSec: sanitizeDurationPreset(defaultTemplate?.durationSec || prev.durationSec || 45),
           scriptMode: defaultTemplate?.scriptMode || prev.scriptMode || "standard",
@@ -1262,14 +1262,14 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           proofPoint: cleanText(defaultTemplate?.proofPoint || "") || prev.proofPoint
         }));
         setVariantOpeningStyles((prev) => {
-          const nextStyle = clampOpeningStyle(defaults.openingStyle, 0);
+          const nextStyle = 4;
           if (!Array.isArray(prev) || !prev.length) return [coerceOpeningStyleForPlan(nextStyle, isProPlan, 0)];
           const next = [...prev];
           next[0] = coerceOpeningStyleForPlan(nextStyle, isProPlan, 0);
           return coerceOpeningStyleListForPlan(next, isProPlan);
         });
         setVariantStylePresets((prev) => {
-          const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced");
+          const nextPreset = coerceVideoStylePresetForPlan("expert", isProPlan, "expert");
           if (!Array.isArray(prev) || !prev.length) return [nextPreset];
           const next = [...prev];
           next[0] = nextPreset;
@@ -1338,7 +1338,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         const inferredStyle = Number.isFinite(Number(suggested?.tone))
           ? Math.max(0, Math.min(4, Number(suggested.tone)))
           : defaults.openingStyle;
-        const inferredPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(inferredStyle), isProPlan, "balanced");
+        const inferredPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(inferredStyle), isProPlan, "expert");
         if (!Array.isArray(prev) || !prev.length) return [inferredPreset];
         const next = [...prev];
         next[0] = inferredPreset;
