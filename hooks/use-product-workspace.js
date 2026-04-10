@@ -1088,6 +1088,20 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           })
         : form.industryPreset;
 
+      const accessoryLikePhoneSignal = normalizeTextForCategoryCheck([
+        nextProductName || requestProductName,
+        suggested?.shortDescription || "",
+        ...(Array.isArray(suggested?.highlights) ? suggested.highlights : []),
+        ...(Array.isArray(suggested?.attributes) ? suggested.attributes.map((item) => (typeof item === "string" ? item : item?.value || "")) : [])
+      ].join(" "));
+
+      const shouldForcePhoneAccessoryTemplate = resolvedCategory === "phoneTablet"
+        && /(op\s*lung|ốp\s*lưng|phone\s*case|case\s*iphone|case\s*android|cover\s*phone|kinh\s*cuong\s*luc|man\s*hinh\s*cuong\s*luc|phu\s*kien\s*(dien\s*thoai|tablet)|magsafe|gia\s*do\s*(dien\s*thoai|tablet)|sac\s*(dien\s*thoai|tablet)|cap\s*(sac|ket\s*noi))/.test(accessoryLikePhoneSignal);
+
+      const normalizedIndustryPreset = shouldForcePhoneAccessoryTemplate
+        ? "phonetablet-accessories"
+        : resolvedIndustryPreset;
+
       const resolvedSubcategory = canApplySuggestedCategory
         ? resolveSuggestedSubcategoryIndex({
             category: resolvedCategory,
@@ -1095,7 +1109,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
             productName: nextProductName || requestProductName,
             currentSubcategory: form.subcategory,
             categoryWillChange: resolvedCategory !== form.category,
-            industryPreset: resolvedIndustryPreset
+            industryPreset: normalizedIndustryPreset
           })
         : form.subcategory;
 
@@ -1116,7 +1130,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
             ? (Number.isFinite(Number(resolvedSubcategory)) ? Number(resolvedSubcategory) : prev.subcategory)
             : prev.subcategory;
           const nextIndustryPreset = canApplySuggestedCategory
-            ? (resolvedIndustryPreset || prev.industryPreset)
+            ? (normalizedIndustryPreset || prev.industryPreset)
             : prev.industryPreset;
 
           const presetPool = getProductIndustryPresets(nextCategory);
@@ -1144,7 +1158,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         }
 
         const noDataPresetPool = getProductIndustryPresets(canApplySuggestedCategory ? resolvedCategory : form.category);
-        const noDataPreset = noDataPresetPool.find((item) => item.value === resolvedIndustryPreset) || noDataPresetPool[0] || null;
+        const noDataPreset = noDataPresetPool.find((item) => item.value === normalizedIndustryPreset) || noDataPresetPool[0] || null;
         const noDataKeyword = buildIndustryKeywordSeed({
           productName: nextProductName || requestProductName,
           presetLabel: noDataPreset?.label || ""
@@ -1177,7 +1191,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           ? (Number.isFinite(Number(resolvedSubcategory)) ? Number(resolvedSubcategory) : prev.subcategory)
           : prev.subcategory;
         const nextIndustryPreset = canApplySuggestedCategory
-          ? (resolvedIndustryPreset || prev.industryPreset)
+          ? (normalizedIndustryPreset || prev.industryPreset)
           : prev.industryPreset;
 
         const presetPool = getProductIndustryPresets(nextCategory);
@@ -1219,7 +1233,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       }
 
       const successPresetPool = getProductIndustryPresets(canApplySuggestedCategory ? resolvedCategory : form.category);
-      const successPreset = successPresetPool.find((item) => item.value === resolvedIndustryPreset) || successPresetPool[0] || null;
+      const successPreset = successPresetPool.find((item) => item.value === normalizedIndustryPreset) || successPresetPool[0] || null;
       const successKeyword = buildIndustryKeywordSeed({
         productName: nextProductName || requestProductName,
         presetLabel: successPreset?.label || ""
