@@ -237,12 +237,8 @@ test.describe("Video Script Page", () => {
 
     await categorySelect.selectOption("motherBaby");
 
-    const channelSelect = page.getByLabel("Kênh");
-    await expect(channelSelect).toHaveValue("1");
-
-    await channelSelect.selectOption("2");
     const styleSelect = page.getByLabel("Phong cách nội dung");
-    await expect(styleSelect).toHaveValue("balanced");
+    await expect(styleSelect).toHaveValue("expert");
   });
 
   test("category remains in sync with selected group", async ({ page }) => {

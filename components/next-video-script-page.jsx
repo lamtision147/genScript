@@ -669,12 +669,6 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 </div>
               ) : null}
 
-              <NextSelectField
-                label={isVi ? "Kênh" : "Channel"}
-                value={form.channel}
-                options={localizedConfig.channelOptions.map((label, idx) => ({ value: idx, label }))}
-                onChange={(value) => actions.setField("channel", value)}
-              />
             </div>
 
             <NextTextField

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import NextShellHeader from "@/components/next-shell-header";
 import NextHistoryCard from "@/components/next-history-card";
 import NextOutputCard from "@/components/next-output-card";
@@ -20,6 +20,7 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   const localized = getLocalizedProductConfig(language);
   const isVi = language === "vi";
   const [savingEditedOutput, setSavingEditedOutput] = useState(false);
+  const outputPanelRef = useRef(null);
 
   const {
     session,
@@ -94,6 +95,16 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
     if (normalized === "expert") return isVi ? "Chuyên gia thuyết phục" : "Expert persuasive";
     if (normalized === "sales") return isVi ? "Chốt sale mạnh" : "Hard close";
     if (normalized === "lifestyle") return isVi ? "Lifestyle gần gũi" : "Warm lifestyle";
+    if (normalized === "storytelling") return isVi ? "Kể chuyện chân thật" : "Storytelling";
+    if (normalized === "socialproof") return isVi ? "Chứng thực xã hội" : "Social proof";
+    if (normalized === "comparison") return isVi ? "So sánh trước/sau" : "Before/after";
+    if (normalized === "benefitstack") return isVi ? "Chuỗi lợi ích" : "Benefit stack";
+    if (normalized === "problemfirst") return isVi ? "Nỗi đau trước" : "Problem-first";
+    if (normalized === "premium") return isVi ? "Premium sang trọng" : "Premium";
+    if (normalized === "urgencysoft") return isVi ? "Khẩn nhẹ" : "Soft urgency";
+    if (normalized === "educational") return isVi ? "Giáo dục dễ hiểu" : "Educational";
+    if (normalized === "community") return isVi ? "Cộng đồng tin cậy" : "Community";
+    if (normalized === "minimalist") return isVi ? "Tối giản rõ ý" : "Minimalist";
     if (normalized === "balanced") return isVi ? "Cân bằng (gọn, an toàn)" : "Balanced (safe default)";
     return isVi ? "Tùy chỉnh thủ công" : "Custom manual";
   }
@@ -103,6 +114,15 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   const styleProfileLabel = (() => {
     return getStylePresetLabel(activeStylePreset);
   })();
+
+  function scrollToOutputPanel() {
+    if (typeof window === "undefined") return;
+    const node = outputPanelRef.current;
+    if (!node) return;
+
+    const top = Math.max(0, window.scrollY + node.getBoundingClientRect().top - 88);
+    window.scrollTo({ top, behavior: "smooth" });
+  }
 
   async function handleSaveEditedOutput(nextResult) {
     setSavingEditedOutput(true);
@@ -116,7 +136,7 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
   return (
     <NextPageFrame>
         <NextShellHeader
-          eyebrow={copy.script.eyebrow || "SellerScript"}
+          eyebrow={copy.script.eyebrow || "Seller Studio"}
           title={copy.script.title}
           subtitle={copy.script.subtitle || ""}
           user={session}
@@ -140,7 +160,6 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
             <NextProductFormPanel
               form={form}
               categoryOptions={categoryOptions}
-              channelOptions={localized.channelOptions}
               currentSubcategories={currentSubcategories}
               toneOptions={localized.toneOptions}
               brandStyleOptions={localized.brandStyleOptions}
@@ -171,7 +190,10 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
               sessionPlan={isProPlan ? "pro" : "free"}
               onVariantCountChange={actions.setVariantCount}
               onVariantStylePresetChange={actions.setVariantStylePresetAt}
-              onGenerate={() => actions.handleGenerate(false)}
+              onGenerate={() => {
+                scrollToOutputPanel();
+                actions.handleGenerate(false);
+              }}
               loading={loading}
               language={language}
             />
@@ -198,13 +220,16 @@ export default function NextScriptProductInfoPage({ initialHistoryId = "" }) {
 
           </section>
 
-          <section className="panel">
+          <section className="panel" ref={outputPanelRef}>
             <NextOutputCard
               loading={loading}
               result={result}
               message={message}
               session={session}
-              onImprove={() => actions.handleGenerate(true)}
+              onImprove={() => {
+                scrollToOutputPanel();
+                actions.handleGenerate(true);
+              }}
               onCopy={actions.copyResult}
               onDownload={actions.downloadDoc}
               editable

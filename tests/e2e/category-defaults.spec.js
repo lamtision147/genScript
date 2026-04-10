@@ -13,7 +13,7 @@ test.describe("Category Defaults", () => {
     expect(values).not.toContain("all");
   });
 
-  test("auto applies marketplace defaults on category and channel change", async ({ page }) => {
+  test("auto applies marketplace defaults on category change", async ({ page }) => {
     await page.goto("/scriptProductInfo");
     await ensureLanguage(page, "vi");
 
@@ -21,11 +21,8 @@ test.describe("Category Defaults", () => {
     await expect(categoryGroup).toBeVisible();
     await categoryGroup.selectOption("motherBabyHealth");
 
-    const categorySelect = page.getByLabel("Danh mục sản phẩm");
+    const categorySelect = page.getByLabel("Danh mục", { exact: true });
     await categorySelect.selectOption("motherBaby");
-
-    const channelSelect = page.getByLabel("Kênh bán");
-    await expect(channelSelect).toHaveValue("1");
 
     const stylePresetSelect = page.getByLabel("Phong cách nội dung");
     await expect(stylePresetSelect).toHaveValue("expert");
@@ -38,12 +35,10 @@ test.describe("Category Defaults", () => {
     await expect(brandStyleSelect).toHaveValue("2");
     await expect(moodSelect).toHaveValue("3");
 
-    await channelSelect.selectOption("2");
-    await expect(channelSelect).toHaveValue("2");
     await expect(toneSelect).toHaveValue("1");
     await expect(brandStyleSelect).toHaveValue("2");
-    await expect(moodSelect).toHaveValue("1");
-    await expect(stylePresetSelect).toHaveValue("custom");
+    await expect(moodSelect).toHaveValue("3");
+    await expect(stylePresetSelect).toHaveValue("expert");
   });
 
   test("group selection scopes category options", async ({ page }) => {
@@ -51,7 +46,7 @@ test.describe("Category Defaults", () => {
     await ensureLanguage(page, "vi");
 
     await page.getByLabel("Nhóm ngành").selectOption("fashionBeauty");
-    const categorySelect = page.getByLabel("Danh mục sản phẩm");
+    const categorySelect = page.getByLabel("Danh mục", { exact: true });
     const optionValuesFashion = await categorySelect.locator("option").evaluateAll((nodes) =>
       nodes.map((node) => node.getAttribute("value"))
     );
@@ -73,7 +68,7 @@ test.describe("Category Defaults", () => {
     const groupSelect = page.getByLabel("Nhóm ngành");
     await groupSelect.selectOption("electronicsTech");
 
-    const categorySelect = page.getByLabel("Danh mục sản phẩm");
+    const categorySelect = page.getByLabel("Danh mục", { exact: true });
     await categorySelect.selectOption("cameraDrone");
     await expect(categorySelect).toHaveValue("cameraDrone");
 
@@ -88,7 +83,7 @@ test.describe("Category Defaults", () => {
     await page.getByLabel("Nhóm ngành").selectOption("electronicsTech");
     await page.getByRole("button", { name: "Dữ liệu mẫu", exact: true }).click();
 
-    await expect(page.getByLabel("Danh mục sản phẩm")).toHaveValue("electronics");
+    await expect(page.getByLabel("Danh mục", { exact: true })).toHaveValue("electronics");
     await expect(page.getByLabel("Nhóm ngành")).toHaveValue("electronicsTech");
   });
 

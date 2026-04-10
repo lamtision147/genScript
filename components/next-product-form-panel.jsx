@@ -94,7 +94,6 @@ function isFreeAllowedStylePreset(value) {
 export default function NextProductFormPanel({
   form,
   categoryOptions,
-  channelOptions,
   currentSubcategories,
   groupedSubcategories = [],
   toneOptions,
@@ -479,13 +478,6 @@ export default function NextProductFormPanel({
             placeholder={copy.form.exchangePolicyPlaceholder}
           />
         ) : null}
-
-        <NextSelectField
-          label={copy.form.channel}
-          value={form.channel}
-          options={channelOptions}
-          onChange={(value) => onFieldChange("channel", value)}
-        />
 
             <div className="variant-inline-control">
               <NextSelectField
