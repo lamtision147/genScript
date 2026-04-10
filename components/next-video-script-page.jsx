@@ -878,13 +878,6 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             onPickVariant={(index) => {
               const next = outputVariants[index];
               if (!next) return;
-              if (next?.historyId && String(next.historyId) !== String(activeHistoryId || "")) {
-                const historyItem = history.find((item) => String(item?.id) === String(next.historyId));
-                if (historyItem) {
-                  actions.openHistoryItem?.(historyItem);
-                  return;
-                }
-              }
               const nextVideoResult = toVideoResultFromOutputVariant(next);
               if (!nextVideoResult) return;
               const nextVariants = outputVariants
