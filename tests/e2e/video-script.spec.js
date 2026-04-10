@@ -2,6 +2,44 @@ const { test, expect } = require("@playwright/test");
 const { ensureLanguage } = require("./helpers");
 
 const ONE_PIXEL_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2m8wAAAABJRU5ErkJggg==";
+const PRO_SESSION = {
+  user: {
+    id: "user_video_pro_001",
+    name: "Video Pro",
+    email: "video-pro@test.local",
+    plan: "pro",
+    generateQuota: {
+      isPro: true,
+      videoScript: { remaining: null, limit: null }
+    }
+  }
+};
+
+async function mockVideoProSession(page) {
+  await page.route("**/api/session**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(PRO_SESSION)
+    });
+  });
+
+  await page.route("**/api/history?type=video_script**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [] })
+    });
+  });
+
+  await page.route("**/api/favorites?type=video_script**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [] })
+    });
+  });
+}
 
 function makePngPayload(name = "video-test.png") {
   return {
@@ -53,13 +91,13 @@ test.describe("Video Script Page", () => {
       });
     });
 
-    await page.getByLabel("Tìm template theo từ khóa").fill("mụn");
+    await page.getByLabel("Từ khóa lọc template").fill("mụn");
     await page.getByLabel("Template ngành hàng").selectOption({ index: 0 });
     await page.getByLabel("Tên sản phẩm").fill("Máy xay mini cầm tay");
     await page.getByRole("button", { name: "Áp dụng template ngành" }).click();
-    await page.getByLabel("Đặt vấn đề chính").fill("Xay đồ ăn dặm mất thời gian, rửa máy cồng kềnh");
-    await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Nhỏ gọn\nXay nhanh\nDễ vệ sinh");
-    await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 7 ngày, mỗi lần xay chỉ mất khoảng 30 giây");
+    await page.getByLabel("Vấn đề chính của khách hàng").fill("Xay đồ ăn dặm mất thời gian, rửa máy cồng kềnh");
+    await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Nhỏ gọn\nXay nhanh\nDễ vệ sinh");
+    await page.getByLabel("Kết quả/Bằng chứng thực tế").fill("Test 7 ngày, mỗi lần xay chỉ mất khoảng 30 giây");
     await page.getByLabel("Mốc thời lượng").selectOption("45");
     await page.getByLabel("Chế độ kịch bản").selectOption("teleprompter");
 
@@ -79,57 +117,51 @@ test.describe("Video Script Page", () => {
   });
 
   test("style selector is single-source and output follows selected style label", async ({ page }) => {
+    await mockVideoProSession(page);
+
     await page.goto("/scriptVideoReview");
     await ensureLanguage(page, "vi");
-
-    await page.route("**/api/session", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          user: {
-            id: "user_video_pro_001",
-            name: "Video Pro",
-            email: "video-pro@test.local",
-            plan: "pro",
-            generateQuota: {
-              isPro: true,
-              videoScript: { remaining: null, limit: null }
-            }
-          }
-        })
-      });
-    });
-
-    await page.route("**/api/history?type=video_script**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ items: [] })
-      });
-    });
-
-    await page.route("**/api/favorites?type=video_script**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ items: [] })
-      });
-    });
+    await expect(page.getByText("Pro: đang tạo 1 bản kịch bản video.")).toBeVisible();
 
     await page.route("**/api/generate-video-script", async (route) => {
       const body = route.request().postDataJSON();
-      const styles = Array.isArray(body?.variantOpeningStyles) ? body.variantOpeningStyles : [0];
+      const stylePresets = Array.isArray(body?.variantStylePresets) ? body.variantStylePresets : ["balanced"];
 
-      const styleLabelByIndex = [
-        "Nỗi đau trực diện",
-        "So sánh trước/sau",
-        "Tuyên bố ngược số đông",
-        "Storytelling ngắn",
-        "Social-proof tin cậy"
-      ];
+      const styleLabelByPreset = {
+        balanced: "Cân bằng (gọn, an toàn)",
+        expert: "Chuyên gia thuyết phục",
+        sales: "Chốt sale mạnh",
+        lifestyle: "Lifestyle gần gũi",
+        storytelling: "Kể chuyện chân thật",
+        socialproof: "Chứng thực xã hội",
+        comparison: "So sánh trước/sau",
+        benefitstack: "Chuỗi lợi ích",
+        problemfirst: "Nỗi đau trước",
+        premium: "Premium sang trọng",
+        urgencysoft: "Khẩn nhẹ",
+        educational: "Giáo dục dễ hiểu",
+        community: "Cộng đồng tin cậy",
+        minimalist: "Tối giản rõ ý"
+      };
 
-      const variants = styles.map((style, index) => ({
+      const stylePresetToOpening = {
+        balanced: 0,
+        expert: 4,
+        sales: 2,
+        lifestyle: 3,
+        storytelling: 3,
+        socialproof: 4,
+        comparison: 1,
+        benefitstack: 2,
+        problemfirst: 0,
+        premium: 4,
+        urgencysoft: 2,
+        educational: 1,
+        community: 4,
+        minimalist: 0
+      };
+
+      const variants = stylePresets.map((stylePreset, index) => ({
         title: `Kịch bản ${index + 1}`,
         hook: `Hook ${index + 1}`,
         scenes: [{ label: `Cảnh ${index + 1}`, voice: `Voice ${index + 1}`, visual: `Visual ${index + 1}` }],
@@ -138,8 +170,10 @@ test.describe("Video Script Page", () => {
         shotList: [`Shot ${index + 1}`],
         source: "ai",
         quality: { score: 88 - index, grade: "A" },
-        openingStyle: Number(style) || 0,
-        variantStyleLabel: styleLabelByIndex[Number(style) || 0],
+        openingStyle: Number(stylePresetToOpening[stylePreset] || 0),
+        stylePreset,
+        variantStylePreset: stylePreset,
+        variantStyleLabel: styleLabelByPreset[stylePreset] || styleLabelByPreset.balanced,
         historyId: `video_hist_style_${index + 1}`,
         variantGroupId: "video_group_style_test"
       }));
@@ -166,29 +200,24 @@ test.describe("Video Script Page", () => {
     await expect(page.getByLabel("Số bản nội dung")).toHaveValue("1");
 
     await page.getByLabel("Số bản nội dung").selectOption("2");
-    await expect(page.getByLabel("Phong cách nội dung")).toHaveCount(0);
     await expect(page.getByLabel("Phong cách nội dung bản 1")).toBeVisible();
     await expect(page.getByLabel("Phong cách nội dung bản 2")).toBeVisible();
-
-    await page.getByLabel("Phong cách nội dung bản 1").selectOption("2");
-    await page.getByLabel("Phong cách nội dung bản 2").selectOption("0");
+    await page.getByLabel("Phong cách nội dung bản 1").selectOption("sales");
+    await page.getByLabel("Phong cách nội dung bản 2").selectOption("balanced");
 
     await page.getByLabel("Tên sản phẩm").fill("Mic mini review");
-    await page.getByLabel("Đặt vấn đề chính").fill("Ghi âm dở khi quay ngoài trời");
-    await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Lọc ồn tốt\nNhỏ gọn\nKết nối nhanh");
-    await page.getByLabel("Kết quả/Minh chứng thực tế").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
+    await page.getByLabel("Vấn đề chính của khách hàng").fill("Ghi âm dở khi quay ngoài trời");
+    await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Lọc ồn tốt\nNhỏ gọn\nKết nối nhanh");
+    await page.getByLabel("Kết quả/Bằng chứng thực tế").fill("Test 5 clip ngoài đường vẫn rõ tiếng");
 
     await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
 
-    await expect(page.getByRole("button", { name: "Tuyên bố ngược số đông" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Nỗi đau trực diện" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Chốt sale mạnh" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cân bằng (gọn, an toàn)" })).toBeVisible();
 
-    await page.getByLabel("Số bản nội dung").selectOption("5");
-    await expect(page.getByLabel("Phong cách nội dung bản 5")).toBeVisible();
-
-    await page.getByRole("button", { name: "Nỗi đau trực diện" }).click();
+    await page.getByRole("button", { name: "Cân bằng (gọn, an toàn)" }).click();
     await expect(page.getByText("Hook 2")).toBeVisible();
-    await expect(page.getByText("Phong cách đã áp dụng: Tiêu chuẩn · Nỗi đau trực diện")).toBeVisible();
+    await expect(page.getByText("Phong cách đã áp dụng: Tiêu chuẩn · Cân bằng (gọn, an toàn)")).toBeVisible();
   });
 
   test("supports category group filter for expanded industries", async ({ page }) => {
@@ -212,8 +241,8 @@ test.describe("Video Script Page", () => {
     await expect(channelSelect).toHaveValue("1");
 
     await channelSelect.selectOption("2");
-    const openingSelect = page.getByLabel("Kiểu mở đầu");
-    await expect(openingSelect).toHaveValue("1");
+    const styleSelect = page.getByLabel("Phong cách nội dung");
+    await expect(styleSelect).toHaveValue("balanced");
   });
 
   test("category remains in sync with selected group", async ({ page }) => {
@@ -268,8 +297,8 @@ test.describe("Video Script Page", () => {
     await expect(page.getByLabel("Tên sản phẩm")).toHaveValue("Quần short nam mặc nhà");
     await expect(page.getByLabel("Nhóm ngành")).toHaveValue("fashionBeauty");
     await expect(page.getByLabel("Danh mục")).toHaveValue("fashion");
-    await expect(page.getByLabel("Khách hàng mục tiêu")).toHaveValue("Nam 18-35");
-    await expect(page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)")).toHaveValue(/Mềm\nThoáng\nDễ mặc/);
+    await expect(page.getByLabel("Khách hàng mục tiêu chính")).toHaveValue("Nam 18-35");
+    await expect(page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)")).toHaveValue(/Mềm\nThoáng\nDễ mặc/);
     await expect(page.getByLabel("Template ngành hàng")).toHaveValue("fashion-men-basic");
     await expect(page.getByText("Đề xuất tự động: Thời trang nam basic")).toBeVisible();
   });
@@ -352,12 +381,13 @@ test.describe("Video Script Page", () => {
   });
 
   test("uses product template catalog and keeps brief untouched on weak signal", async ({ page }) => {
+    await mockVideoProSession(page);
     await page.goto("/scriptVideoReview");
     await ensureLanguage(page, "vi");
 
     await page.getByLabel("Tên sản phẩm").fill("Áo thun nam basic");
-    await page.getByLabel("Đặt vấn đề chính").fill("Muốn áo mặc mát, form gọn");
-    await page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)").fill("Mềm\nThoáng\nDễ phối");
+    await page.getByLabel("Vấn đề chính của khách hàng").fill("Muốn áo mặc mát, form gọn");
+    await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Mềm\nThoáng\nDễ phối");
     await page.getByLabel("Template ngành hàng").selectOption("fashion-men-basic");
 
     await page.route("**/api/suggest-from-images", async (route) => {
@@ -385,9 +415,157 @@ test.describe("Video Script Page", () => {
     const dropInput = page.locator(".upload-dropzone input[type='file']").first();
     await dropInput.setInputFiles([makePngPayload("weak-signal-video.png")]);
 
-    await expect(page.getByLabel("Template ngành hàng")).toHaveValue("fashion-men-basic");
-    await expect(page.getByLabel("Đặt vấn đề chính")).toHaveValue("Muốn áo mặc mát, form gọn");
-    await expect(page.getByLabel("Điểm nổi bật (mỗi dòng 1 ý)")).toHaveValue(/Mềm\nThoáng\nDễ phối/);
-    await expect(page.getByText("Ảnh chưa đủ tín hiệu mạnh")).toBeVisible();
+    await expect(page.getByLabel("Template ngành hàng")).toHaveValue("fashion-women-office");
+    await expect(page.getByLabel("Vấn đề chính của khách hàng")).toHaveValue("Đồ công sở tôn dáng, mặc thoải mái cả ngày, lên hình chỉn chu.");
+    await expect(page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)")).toHaveValue(/Tôn dáng.*\nVải ít nhăn\nDễ phối blazer/);
+    await expect(
+      page.locator(".field-helper, .history-empty.error-state").filter({
+        hasText: /chua du du lieu anh|Chưa nhận dạng được tên sản phẩm từ ảnh|Ảnh chưa đủ tín hiệu mạnh/i
+      }).first()
+    ).toBeVisible();
+  });
+
+  test("free plan locks style list to 3 and shows pro popup on locked style", async ({ page }) => {
+    await page.route("**/api/session**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user_video_free_001",
+            name: "Video Free",
+            email: "video-free@test.local",
+            plan: "free",
+            generateQuota: {
+              isPro: false,
+              videoScript: { remaining: 5, limit: 5 }
+            }
+          }
+        })
+      });
+    });
+    await page.route("**/api/history?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+    await page.route("**/api/favorites?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+
+    await page.goto("/scriptVideoReview");
+    await ensureLanguage(page, "vi");
+
+    const styleSelect = page.getByLabel("Phong cách nội dung");
+    await expect(styleSelect).toHaveValue("balanced");
+
+    const options = await styleSelect.locator("option").evaluateAll((nodes) =>
+      nodes.map((node) => ({ value: node.getAttribute("value"), text: node.textContent || "" }))
+    );
+    expect(options).toHaveLength(14);
+    expect(options[2].text).toContain("(Pro)");
+    expect(options[4].text).toContain("(Pro)");
+
+    await styleSelect.selectOption("storytelling");
+    await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
+    await expect(styleSelect).toHaveValue("balanced");
+
+    await page.getByLabel("Số bản nội dung").selectOption("2");
+    await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
+    await expect(page.getByLabel("Số bản nội dung")).toHaveValue("1");
+  });
+
+  test("video API coerces free opening styles to allowed set", async ({ page }) => {
+    await page.route("**/api/session**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "user_video_free_api_001",
+            name: "Video Free Api",
+            email: "video-free-api@test.local",
+            plan: "free",
+            generateQuota: {
+              isPro: false,
+              videoScript: { remaining: 5, limit: 5 }
+            }
+          }
+        })
+      });
+    });
+    await page.route("**/api/history?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+    await page.route("**/api/favorites?type=video_script**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] })
+      });
+    });
+
+    await page.route("**/api/generate-video-script", async (route) => {
+      const body = route.request().postDataJSON();
+      expect(body.variantCount).toBe(1);
+      expect(body.variantStylePresets).toEqual(["balanced"]);
+      expect(body.variantOpeningStyles).toEqual([0]);
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          historyId: null,
+          selectedVariant: 0,
+          variants: [{
+            title: "Script free",
+            hook: "Hook free",
+            scenes: [{ label: "Scene 1", voice: "Voice 1", visual: "Visual 1" }],
+            cta: "CTA free",
+            hashtags: ["#free"],
+            shotList: ["Shot free"],
+            source: "fallback",
+            openingStyle: 0,
+            variantStyleLabel: "Nỗi đau trực diện"
+          }],
+          script: {
+            title: "Script free",
+            hook: "Hook free",
+            scenes: [{ label: "Scene 1", voice: "Voice 1", visual: "Visual 1" }],
+            cta: "CTA free",
+            hashtags: ["#free"],
+            shotList: ["Shot free"],
+            source: "fallback",
+            openingStyle: 0,
+            variantStyleLabel: "Nỗi đau trực diện"
+          }
+        })
+      });
+    });
+
+    await page.goto("/scriptVideoReview");
+    await ensureLanguage(page, "vi");
+
+    const styleSelect = page.getByLabel("Phong cách nội dung");
+    await styleSelect.selectOption("storytelling");
+    await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
+    await page.getByRole("button", { name: /Tiếp tục với 1 bản/i }).click();
+
+    await page.getByLabel("Tên sản phẩm").fill("Free api test");
+    await page.getByLabel("Vấn đề chính của khách hàng").fill("Van de test");
+    await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Y 1\nY 2\nY 3");
+    await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
+
+    await expect(page.getByText("Script free")).toBeVisible();
   });
 });

@@ -18,14 +18,74 @@ import {
 } from "@/lib/category-inference";
 import { normalizeTextForCategoryCheck } from "@/lib/category-inference";
 import { enforceGroupScopedCategory } from "@/lib/product-workspace-helpers";
+import {
+  VIDEO_STYLE_PRESET_SEQUENCE,
+  coerceVideoStylePresetForPlan,
+  coerceVideoStylePresetListForPlan,
+  getVideoStylePresetLabel,
+  getVideoStylePresetOptions,
+  normalizeVideoStylePreset,
+  videoOpeningStyleToPreset,
+  videoStylePresetToOpeningStyle
+} from "@/lib/video-style-presets";
 
-const MAX_IMAGE_COUNT = 4;
-const VIDEO_VARIANT_STYLE_SEQUENCE = [0, 1, 2, 3, 4];
+const MAX_IMAGE_COUNT = 1;
+
+const ANALYSIS_MESSAGE_BY_LANG = {
+  vi: {
+    weakSignal: "Ảnh chưa đủ tín hiệu mạnh. Đã gợi ý template gần nhất để bạn chỉnh nhanh.",
+    conflict: "Ảnh và tên sản phẩm đang lệch nhóm ngành, vui lòng kiểm tra lại trước khi tạo kịch bản."
+  },
+  en: {
+    weakSignal: "Image signal is weak. Applied nearest template suggestion so you can refine quickly.",
+    conflict: "Image and product name suggest different categories. Please verify before generating the script."
+  },
+  zh: {
+    weakSignal: "图片信号不足，已匹配最接近模板，方便你快速调整。",
+    conflict: "图片与商品名称所属类目不一致，请先确认再生成脚本。"
+  },
+  ja: {
+    weakSignal: "画像の信号が弱いため、近いテンプレートを提案しました。すぐ調整できます。",
+    conflict: "画像と商品名のカテゴリが一致しません。生成前に確認してください。"
+  },
+  ko: {
+    weakSignal: "이미지 신호가 약해 가장 가까운 템플릿을 추천했습니다. 빠르게 수정할 수 있어요.",
+    conflict: "이미지와 상품명 카테고리가 다릅니다. 생성 전에 확인해 주세요."
+  },
+  es: {
+    weakSignal: "La señal de imagen es debil. Se aplico la plantilla mas cercana para que ajustes rapido.",
+    conflict: "La imagen y el nombre del producto apuntan a categorias distintas. Verifica antes de generar."
+  },
+  fr: {
+    weakSignal: "Le signal image est faible. Le template le plus proche a ete applique pour ajuster rapidement.",
+    conflict: "L'image et le nom du produit indiquent des categories differentes. Verifiez avant de generer."
+  },
+  de: {
+    weakSignal: "Das Bildsignal ist schwach. Die naechste passende Vorlage wurde fuer schnelle Anpassung angewendet.",
+    conflict: "Bild und Produktname deuten auf unterschiedliche Kategorien hin. Bitte vor dem Generieren pruefen."
+  }
+};
+
+function getAnalysisMessage(language = "vi", type = "weakSignal") {
+  const langKey = ANALYSIS_MESSAGE_BY_LANG[language] ? language : "vi";
+  const bundle = ANALYSIS_MESSAGE_BY_LANG[langKey] || ANALYSIS_MESSAGE_BY_LANG.vi;
+  return bundle?.[type] || ANALYSIS_MESSAGE_BY_LANG.vi.weakSignal;
+}
 
 function clampOpeningStyle(value, fallback = 0) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(0, Math.min(4, Math.floor(parsed)));
+}
+
+function coerceOpeningStyleForPlan(value, isPro = false, fallback = 0) {
+  const normalized = clampOpeningStyle(value, fallback);
+  return normalized;
+}
+
+function coerceOpeningStyleListForPlan(list = [], isPro = false) {
+  const source = Array.isArray(list) ? list : [];
+  return source.map((item) => coerceOpeningStyleForPlan(item, isPro, 0));
 }
 
 function isSameOpeningStyleList(left = [], right = []) {
@@ -59,24 +119,54 @@ function buildVariantOpeningStyleList(count = 1, seedStyle = 0, existing = []) {
   return next;
 }
 
-function getOpeningStyleLabel(language = "vi", openingStyle = 0) {
-  const isVi = language === "vi";
-  const labels = isVi
-    ? [
-      "Nỗi đau trực diện",
-      "So sánh trước/sau",
-      "Tuyên bố ngược số đông",
-      "Storytelling ngắn",
-      "Social-proof tin cậy"
-    ]
-    : [
-      "Direct pain-point",
-      "Before/after",
-      "Contrarian statement",
-      "Short storytelling",
-      "Social-proof"
-    ];
-  return labels[clampOpeningStyle(openingStyle, 0)] || labels[0];
+function isSameStylePresetList(left = [], right = []) {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (String(left[index] || "") !== String(right[index] || "")) return false;
+  }
+  return true;
+}
+
+function buildVariantStylePresetList(count = 1, seedPreset = "balanced", existing = []) {
+  const size = Math.max(1, Math.min(5, Number(count) || 1));
+  const normalizedSeed = normalizeVideoStylePreset(seedPreset, "balanced");
+  const firstStyle = VIDEO_STYLE_PRESET_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "balanced";
+  const rotation = [firstStyle, ...VIDEO_STYLE_PRESET_SEQUENCE.filter((item) => item !== firstStyle)];
+  const next = [];
+
+  for (let index = 0; index < size; index += 1) {
+    const preset = normalizeVideoStylePreset(existing?.[index], "");
+    if (size > 1) {
+      if (VIDEO_STYLE_PRESET_SEQUENCE.includes(preset)) {
+        next.push(preset);
+        continue;
+      }
+      next.push(rotation[index % rotation.length] || "balanced");
+      continue;
+    }
+    next.push(normalizedSeed);
+  }
+
+  return next;
+}
+
+function deriveVariantStylePresetsFromVariants(variants = [], isProPlan = false, fallbackOpeningStyle = 0) {
+  const source = Array.isArray(variants) ? variants : [];
+  const fallbackPreset = videoOpeningStyleToPreset(fallbackOpeningStyle);
+  if (!source.length) {
+    return [coerceVideoStylePresetForPlan(fallbackPreset, isProPlan, "balanced")];
+  }
+
+  return coerceVideoStylePresetListForPlan(
+    source.map((variant) => {
+      const explicit = normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || variant?.styleKey || "", "");
+      if (explicit) return explicit;
+      return videoOpeningStyleToPreset(variant?.openingStyle);
+    }),
+    isProPlan,
+    fallbackPreset
+  );
 }
 
 function cleanText(value) {
@@ -109,9 +199,12 @@ function normalizePriceSegment(value) {
 }
 
 function isLowSignalSuggestion(suggestion = null) {
+  if (String(suggestion?.analysisState || "").toLowerCase() === "no_data") {
+    return true;
+  }
   const confidence = Number(suggestion?.confidence || 0);
   const noteText = Array.isArray(suggestion?.notes) ? suggestion.notes.join(" ") : "";
-  const noDataPattern = /khong du du lieu|chua du du lieu|insufficient|not enough image|uploaded image does not contain enough data|metadata|temporary inference|suy luan tam/i;
+  const noDataPattern = /khong du du lieu|chua du du lieu|insufficient|not enough image|uploaded image does not contain enough data|metadata|temporary inference|suy luan tam|images are unclear|image quality is weak|anh chua du ro/i;
   return confidence <= 0.58 && noDataPattern.test(noteText);
 }
 
@@ -125,6 +218,10 @@ function mapSuggestMoodLabel(language = "vi", moodValue = 2) {
 function toVideoSuggestHighlights(value) {
   if (Array.isArray(value)) return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 6);
   return [];
+}
+
+function normalizeHighlightsMultiline(value = "") {
+  return splitLines(value).slice(0, 6).join("\n");
 }
 
 function tokenizeForSuggest(value = "") {
@@ -215,6 +312,15 @@ function getDefaultVideoForm(category = "fashion") {
     moodVi,
     moodEn
   };
+}
+
+function getAdvancedFieldGroupForVideo(category = "other") {
+  const key = String(category || "other").trim();
+  if (["skincare", "beautyTools", "motherBaby", "healthCare"].includes(key)) return "skincare";
+  if (["home", "furnitureDecor", "homeAppliances", "toolsHardware", "householdEssentials"].includes(key)) return "home";
+  if (["electronics", "phoneTablet", "computerOffice", "cameraDrone", "autoMoto", "digitalGoods", "booksStationery", "toysGames", "pet", "sports", "food"].includes(key)) return "electronics";
+  if (["fashion", "footwear", "bags", "accessories", "fragrance"].includes(key)) return "fashion";
+  return "none";
 }
 
 const INDUSTRY_TEMPLATE_BY_LANG = {
@@ -409,7 +515,7 @@ function buildVideoSuggestedTemplate({ category = "other", suggestion = null, la
 
   return {
     value: `suggest-${category}`,
-    label: isVi ? "Template AI từ ảnh" : "AI template from image",
+    label: isVi ? "Template tự động từ ảnh" : "Auto template from image",
     targetCustomer,
     painPoint,
     highlights: mergedHighlights.join("\n") || (isVi ? "Điểm mạnh rõ\nDễ dùng\nHiệu quả thực tế" : "Clear strengths\nEasy to use\nPractical outcomes"),
@@ -450,6 +556,17 @@ function getIndustryPresetsByCategory(language, category) {
         painPoint: safeShort || (langKey === "vi" ? "Khó chọn đúng sản phẩm vì thiếu bối cảnh dùng thật" : "Hard to choose the right product without real usage context"),
         highlights: safeHighlights || (langKey === "vi" ? "Điểm mạnh rõ\nDễ dùng\nĐáng tiền" : "Clear strengths\nEasy to use\nWorth the money"),
         proofPoint: safeProof || (langKey === "vi" ? "Dùng thử trong bối cảnh thực tế cho kết quả dễ cảm nhận" : "Real-life usage shows practical benefits quickly"),
+        usage: item.usage || "",
+        skinConcern: item.skinConcern || "",
+        routineStep: item.routineStep || "",
+        dimensions: item.dimensions || "",
+        warranty: item.warranty || "",
+        usageSpace: item.usageSpace || "",
+        specs: item.specs || "",
+        compatibility: item.compatibility || "",
+        sizeGuide: item.sizeGuide || "",
+        careGuide: item.careGuide || "",
+        exchangePolicy: item.exchangePolicy || "",
         mood,
         openingStyle: toneToOpening[Math.max(0, Math.min(2, tone))],
         durationSec: duration,
@@ -489,12 +606,23 @@ export function createEmptyVideoForm() {
     openingStyle: defaults.openingStyle,
     scriptMode: "standard",
     industryPreset: "",
+    usage: "",
+    skinConcern: "",
+    routineStep: "",
+    dimensions: "",
+    warranty: "",
+    usageSpace: "",
+    specs: "",
+    compatibility: "",
+    sizeGuide: "",
+    careGuide: "",
+    exchangePolicy: "",
     images: []
   };
 }
 
 export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = "" } = {}) {
-  const { session, setSession } = useAuthBootstrap();
+  const { session, guestQuota, setSession } = useAuthBootstrap();
   const copy = getCopy(language);
   const localizedConfig = getLocalizedProductConfig(language);
   const {
@@ -525,8 +653,27 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
   const [generateQuota, setGenerateQuota] = useState(null);
   const [variantCount, setVariantCount] = useState(1);
   const [variantOpeningStyles, setVariantOpeningStyles] = useState([0]);
+  const [variantStylePresets, setVariantStylePresets] = useState(["balanced"]);
 
   const isProPlan = String(session?.plan || "free") === "pro";
+
+  async function refreshSessionQuota({ force = false } = {}) {
+    if (!force) {
+      setGenerateQuota(session?.generateQuota || guestQuota || null);
+      return;
+    }
+    try {
+      const data = await apiGet(routes.api.session, { user: null, guestQuota: null }, { timeoutMs: 4500 });
+      setSession(data?.user || null);
+      setGenerateQuota(data?.user?.generateQuota || data?.guestQuota || null);
+    } catch {
+      // noop
+    }
+  }
+
+  useEffect(() => {
+    setGenerateQuota(session?.generateQuota || guestQuota || null);
+  }, [session, guestQuota]);
 
   const categoryOptions = useMemo(() => {
     const groupValues = getCategoryValuesByGroup(categoryGroupFilter);
@@ -558,6 +705,11 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     return industryPresetCatalog.find((item) => item.value === form.industryPreset) || industryPresetCatalog[0];
   }, [industryPresetCatalog, form.industryPreset]);
 
+  const advancedFieldGroup = useMemo(
+    () => getAdvancedFieldGroupForVideo(form?.category || "other"),
+    [form?.category]
+  );
+
   useEffect(() => {
     const expectedGroup = getCategoryGroupValue(form.category);
     if (expectedGroup === categoryGroupFilter) return;
@@ -572,24 +724,14 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     setField("category", allowed[0] || "other");
   }, [categoryGroupFilter]);
 
-  const openingStyleOptions = useMemo(() => {
-    const isVi = language === "vi";
-    return isVi
-      ? [
-          "Nỗi đau trực diện",
-          "So sánh trước/sau",
-          "Tuyên bố ngược số đông",
-          "Storytelling ngắn",
-          "Social-proof tin cậy"
-        ]
-      : [
-          "Direct pain-point hook",
-          "Before/after hook",
-          "Contrarian hook",
-          "Short storytelling hook",
-          "Social-proof hook"
-        ];
-  }, [language]);
+  const openingStyleOptions = useMemo(
+    () => getVideoStylePresetOptions(language).map((item) => item.label),
+    [language]
+  );
+  const variantStylePresetOptions = useMemo(
+    () => getVideoStylePresetOptions(language),
+    [language]
+  );
 
   const moodPresetOptions = useMemo(() => {
     const isVi = language === "vi";
@@ -625,12 +767,23 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
     const variants = groupItems.map((entry, index) => {
       const variant = entry?.result || {};
-      const styleKey = clampOpeningStyle(variant?.openingStyle, Number(entry?.form?.openingStyle ?? index % 5));
-      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+      const styleKey = coerceOpeningStyleForPlan(
+        variant?.openingStyle,
+        isProPlan,
+        Number(entry?.form?.openingStyle ?? index % 5)
+      );
+      const stylePreset = coerceVideoStylePresetForPlan(
+        normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+        isProPlan,
+        videoOpeningStyleToPreset(styleKey)
+      );
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
       return {
         ...variant,
         historyId: entry?.id || null,
         openingStyle: styleKey,
+        stylePreset,
+        variantStylePreset: stylePreset,
         variantStyleLabel: styleLabel,
         styleLabel,
         variantGroupId
@@ -657,25 +810,41 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
   useEffect(() => {
     const targetCount = isProPlan ? variantCount : 1;
-    const seed = clampOpeningStyle(form?.openingStyle, 0);
-    const normalized = buildVariantOpeningStyleList(targetCount, seed, variantOpeningStyles);
-    if (!isSameOpeningStyleList(normalized, variantOpeningStyles)) {
-      setVariantOpeningStyles(normalized);
+    const seedOpeningStyle = coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 0);
+    const normalizedStyles = coerceVideoStylePresetListForPlan(
+      buildVariantStylePresetList(targetCount, videoOpeningStyleToPreset(seedOpeningStyle), variantStylePresets),
+      isProPlan,
+      videoOpeningStyleToPreset(seedOpeningStyle)
+    );
+    const nextOpeningStyles = coerceOpeningStyleListForPlan(
+      normalizedStyles.map((stylePreset) => videoStylePresetToOpeningStyle(stylePreset, seedOpeningStyle)),
+      isProPlan
+    );
+
+    if (!isSameOpeningStyleList(nextOpeningStyles, variantOpeningStyles)) {
+      setVariantOpeningStyles(nextOpeningStyles);
     }
-  }, [isProPlan, variantCount, form?.openingStyle]);
+
+    const firstOpeningStyle = nextOpeningStyles[0] ?? seedOpeningStyle;
+    if (coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 0) !== firstOpeningStyle) {
+      setForm((prev) => ({ ...prev, openingStyle: firstOpeningStyle }));
+    }
+
+    if (!isSameStylePresetList(normalizedStyles, variantStylePresets)) {
+      setVariantStylePresets(normalizedStyles);
+    }
+  }, [variantStylePresets, isProPlan, variantCount, form?.openingStyle]);
 
   useEffect(() => {
-    fetch(routes.api.session, { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        setSession(data?.user || null);
-        setGenerateQuota(data?.user?.generateQuota || data?.guestQuota || null);
-      })
-      .catch(() => {});
-  }, [setSession]);
+    refreshSessionQuota();
+  }, [setSession, session, guestQuota]);
 
   useEffect(() => {
     historyActions.refresh();
+    const timer = setTimeout(() => {
+      historyActions.refresh().catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -702,15 +871,22 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           ? itemResult.variants
           : (itemResult ? [itemResult] : []);
       const normalizedVariants = variants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
-        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
-        return {
-          ...variant,
-          historyId: variant?.historyId || item?.id || null,
-          openingStyle: styleKey,
-          variantStyleLabel: styleLabel,
-          styleLabel
-        };
+        const styleKey = coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5);
+      const stylePreset = coerceVideoStylePresetForPlan(
+        normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+        isProPlan,
+        videoOpeningStyleToPreset(styleKey)
+      );
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
+      return {
+        ...variant,
+        historyId: variant?.historyId || item?.id || null,
+        openingStyle: styleKey,
+        stylePreset,
+        variantStylePreset: stylePreset,
+        variantStyleLabel: styleLabel,
+        styleLabel
+      };
       });
         const selectedVariant = Number.isFinite(Number(itemResult?.selectedVariant))
           ? Math.max(0, Math.min(normalizedVariants.length - 1, Number(itemResult.selectedVariant)))
@@ -725,8 +901,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, normalizedVariants.length || 1));
         setVariantOpeningStyles(
           normalizedVariants.length
-            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
+            ? normalizedVariants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
             : [0]
+        );
+        setVariantStylePresets(
+          deriveVariantStylePresetsFromVariants(
+            normalizedVariants,
+            isProPlan,
+            normalizedVariants?.[0]?.openingStyle ?? item?.form?.openingStyle ?? 0
+          )
         );
         setForm((prev) => ({
           ...prev,
@@ -777,7 +960,8 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         industryPreset: ""
       });
     setVariantCount(1);
-    setVariantOpeningStyles([clampOpeningStyle(defaults.openingStyle, 0)]);
+    setVariantStylePresets([coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced")]);
+    setVariantOpeningStyles([coerceOpeningStyleForPlan(defaults.openingStyle, isProPlan, 0)]);
   }
 
   function applyIndustryTemplate() {
@@ -797,11 +981,12 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       scriptMode: template.scriptMode || prev.scriptMode,
       industryPreset: template.value || prev.industryPreset
     }));
-    setVariantOpeningStyles((prev) => {
-      if (!Array.isArray(prev) || !prev.length) return [clampOpeningStyle(template.openingStyle, 0)];
+    setVariantStylePresets((prev) => {
+      const stylePreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(template.openingStyle), isProPlan, "balanced");
+      if (!Array.isArray(prev) || !prev.length) return [stylePreset];
       const next = [...prev];
-      next[0] = clampOpeningStyle(template.openingStyle, 0);
-      return next;
+      next[0] = stylePreset;
+      return coerceVideoStylePresetListForPlan(next, isProPlan, stylePreset);
     });
   }
 
@@ -812,7 +997,8 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     setResult(null);
     setMessage("");
     setVariantCount(1);
-    setVariantOpeningStyles([0]);
+    setVariantStylePresets([coerceVideoStylePresetForPlan("balanced", isProPlan, "balanced")]);
+    setVariantOpeningStyles([coerceOpeningStyleForPlan(0, isProPlan, 0)]);
   }
 
   function setVariantCountValue(nextValue) {
@@ -827,18 +1013,36 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
   function setVariantOpeningStyleAt(index, openingStyle) {
     const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
-    const normalizedStyle = clampOpeningStyle(openingStyle, 0);
+    const fallbackStyle = coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 0);
+    const normalizedStyle = coerceOpeningStyleForPlan(openingStyle, isProPlan, fallbackStyle);
+    const normalizedPreset = coerceVideoStylePresetForPlan(
+      videoOpeningStyleToPreset(normalizedStyle),
+      isProPlan,
+      videoOpeningStyleToPreset(fallbackStyle)
+    );
     const targetCount = isProPlan ? variantCount : 1;
 
-    setVariantOpeningStyles((prev) => {
-      const normalized = buildVariantOpeningStyleList(targetCount, form?.openingStyle ?? 0, prev);
-      normalized[targetIndex] = normalizedStyle;
-      return normalized;
+    setVariantStylePresets((prev) => {
+      const seedPreset = coerceVideoStylePresetForPlan(prev?.[0], isProPlan, videoOpeningStyleToPreset(fallbackStyle));
+      const next = buildVariantStylePresetList(targetCount, seedPreset, prev);
+      next[targetIndex] = normalizedPreset;
+      return coerceVideoStylePresetListForPlan(next, isProPlan, seedPreset);
     });
+  }
 
-    if (targetIndex === 0) {
-      setForm((prev) => ({ ...prev, openingStyle: normalizedStyle }));
-    }
+  function setVariantStylePresetAt(index, stylePreset) {
+    const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+    const targetCount = isProPlan ? variantCount : 1;
+    const currentFallback = coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 0);
+    const fallbackPreset = videoOpeningStyleToPreset(currentFallback);
+    const normalizedPreset = coerceVideoStylePresetForPlan(stylePreset, isProPlan, fallbackPreset);
+
+    setVariantStylePresets((prev) => {
+      const seedPreset = coerceVideoStylePresetForPlan(prev?.[0], isProPlan, fallbackPreset);
+      const next = buildVariantStylePresetList(targetCount, seedPreset, prev);
+      next[targetIndex] = normalizedPreset;
+      return coerceVideoStylePresetListForPlan(next, isProPlan, seedPreset);
+    });
   }
 
   function setCategoryGroup(nextGroup) {
@@ -866,11 +1070,12 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
         industryPreset: presets[0]?.value || ""
       }));
-      setVariantOpeningStyles((prev) => {
-        if (!Array.isArray(prev) || !prev.length) return [clampOpeningStyle(defaults.openingStyle, 0)];
+      setVariantStylePresets((prev) => {
+        const stylePreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced");
+        if (!Array.isArray(prev) || !prev.length) return [stylePreset];
         const next = [...prev];
-        next[0] = clampOpeningStyle(defaults.openingStyle, 0);
-        return next;
+        next[0] = stylePreset;
+        return coerceVideoStylePresetListForPlan(next, isProPlan, stylePreset);
       });
       return;
     }
@@ -891,30 +1096,51 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         openingStyle: Math.max(0, Math.min(4, Number(styleDefaults.tone) || defaults.openingStyle)),
         mood
       }));
-      setVariantOpeningStyles((prev) => {
+      setVariantStylePresets((prev) => {
         const nextStyle = Math.max(0, Math.min(4, Number(styleDefaults.tone) || defaults.openingStyle));
-        if (!Array.isArray(prev) || !prev.length) return [nextStyle];
+        const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "balanced");
+        if (!Array.isArray(prev) || !prev.length) return [nextPreset];
         const next = [...prev];
-        next[0] = nextStyle;
-        return next;
+        next[0] = nextPreset;
+        return coerceVideoStylePresetListForPlan(next, isProPlan, nextPreset);
       });
       return;
     }
 
     if (key === "industryPreset") {
+      const preset = pickIndustryTemplate(language, form.category, value);
       setAutoTemplateMeta(null);
-      setForm((prev) => ({ ...prev, industryPreset: value }));
+      setForm((prev) => ({
+        ...prev,
+        industryPreset: value,
+        targetCustomer: preset?.targetCustomer || prev.targetCustomer,
+        painPoint: preset?.painPoint || prev.painPoint,
+        highlights: preset?.highlights || prev.highlights,
+        proofPoint: preset?.proofPoint || prev.proofPoint,
+        usage: preset?.usage || prev.usage,
+        skinConcern: preset?.skinConcern || prev.skinConcern,
+        routineStep: preset?.routineStep || prev.routineStep,
+        dimensions: preset?.dimensions || prev.dimensions,
+        warranty: preset?.warranty || prev.warranty,
+        usageSpace: preset?.usageSpace || prev.usageSpace,
+        specs: preset?.specs || prev.specs,
+        compatibility: preset?.compatibility || prev.compatibility,
+        sizeGuide: preset?.sizeGuide || prev.sizeGuide,
+        careGuide: preset?.careGuide || prev.careGuide,
+        exchangePolicy: preset?.exchangePolicy || prev.exchangePolicy
+      }));
       return;
     }
 
     setForm((prev) => ({ ...prev, [key]: value }));
     if (key === "openingStyle") {
-      setVariantOpeningStyles((prev) => {
-        const nextStyle = clampOpeningStyle(value, 0);
-        if (!Array.isArray(prev) || !prev.length) return [nextStyle];
+      const nextStyle = clampOpeningStyle(value, 0);
+      const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(nextStyle), isProPlan, "balanced");
+      setVariantStylePresets((prev) => {
+        if (!Array.isArray(prev) || !prev.length) return [nextPreset];
         const next = [...prev];
-        next[0] = nextStyle;
-        return next;
+        next[0] = nextPreset;
+        return coerceVideoStylePresetListForPlan(next, isProPlan, nextPreset);
       });
     }
   }
@@ -952,15 +1178,18 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       const data = await apiPost(routes.api.suggestFromImages, {
         lang: toAiLang(language),
         productName: form.productName,
-        images
+        images,
+        mode: mode === "manual" ? "manual" : "auto"
       });
 
       const suggested = data?.suggestion || null;
       setSuggestion(suggested);
       if (!suggested) return;
 
+      const analysisState = String(suggested.analysisState || "").toLowerCase();
       const generatedName = cleanText(suggested.generatedProductName || "");
-      const shouldUseGeneratedName = Boolean(generatedName && !isUnknownGeneratedProductName(generatedName));
+      const noNameDetected = isUnknownGeneratedProductName(generatedName);
+      const shouldUseGeneratedName = Boolean(generatedName && !noNameDetected);
       const inferredCategory = inferCategoryFromProductName(shouldUseGeneratedName ? generatedName : form.productName);
       const suggestedCategory = normalizeSuggestedCategory(suggested.category);
       const resolvedCategory = shouldPreferInferredCategory(inferredCategory, suggestedCategory)
@@ -969,47 +1198,112 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       const defaults = getDefaultVideoForm(resolvedCategory);
       const nextGroup = getCategoryGroupValue(resolvedCategory);
       const lowSignalSuggestion = isLowSignalSuggestion(suggested);
-      const shouldSoftApply = lowSignalSuggestion;
+      const shouldUseNoDataMode = analysisState === "no_data" || noNameDetected || lowSignalSuggestion;
       const hasCategoryConflict = Boolean(inferredCategory && suggestedCategory && inferredCategory !== suggestedCategory);
       const presets = getIndustryPresetsByCategory(language, resolvedCategory);
-      const aiTemplate = buildVideoSuggestedTemplate({ category: resolvedCategory, suggestion: suggested, language });
+      const defaultTemplate = presets[0] || null;
+
+      if (shouldUseNoDataMode) {
+        const suggestedHighlightsText = normalizeHighlightsMultiline(defaultTemplate?.highlights || "");
+        setCategoryGroupFilter(nextGroup);
+        setForm((prev) => ({
+          ...prev,
+          productName: shouldUseGeneratedName ? generatedName : prev.productName,
+          category: resolvedCategory,
+          channel: defaults.channel,
+          openingStyle: defaults.openingStyle,
+          mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
+          durationSec: sanitizeDurationPreset(defaultTemplate?.durationSec || prev.durationSec || 45),
+          scriptMode: defaultTemplate?.scriptMode || prev.scriptMode || "standard",
+          priceSegment: normalizePriceSegment(defaultTemplate?.priceSegment || prev.priceSegment || "mid"),
+          industryPreset: defaultTemplate?.value || prev.industryPreset,
+          targetCustomer: cleanText(defaultTemplate?.targetCustomer || "") || prev.targetCustomer,
+          painPoint: cleanText(defaultTemplate?.painPoint || "") || prev.painPoint,
+          highlights: suggestedHighlightsText || prev.highlights,
+          proofPoint: cleanText(defaultTemplate?.proofPoint || "") || prev.proofPoint
+        }));
+        setVariantOpeningStyles((prev) => {
+          const nextStyle = clampOpeningStyle(defaults.openingStyle, 0);
+          if (!Array.isArray(prev) || !prev.length) return [coerceOpeningStyleForPlan(nextStyle, isProPlan, 0)];
+          const next = [...prev];
+          next[0] = coerceOpeningStyleForPlan(nextStyle, isProPlan, 0);
+          return coerceOpeningStyleListForPlan(next, isProPlan);
+        });
+        setVariantStylePresets((prev) => {
+          const nextPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(defaults.openingStyle), isProPlan, "balanced");
+          if (!Array.isArray(prev) || !prev.length) return [nextPreset];
+          const next = [...prev];
+          next[0] = nextPreset;
+          return coerceVideoStylePresetListForPlan(next, isProPlan, nextPreset);
+        });
+        setAutoTemplateMeta(defaultTemplate
+          ? {
+              value: defaultTemplate.value || "",
+              label: defaultTemplate.label || "",
+              source: "image-suggest",
+              at: Date.now()
+            }
+          : null);
+        setSuggestionPulseToken(Date.now());
+        setMessage(language === "vi"
+          ? "Chưa nhận dạng được tên sản phẩm từ ảnh. Vui lòng thêm ảnh rõ nét hơn."
+          : "Could not identify the product name from the image yet. Please upload clearer photos.");
+        trackEvent("image.suggest.name_not_detected", {
+          page: "scriptVideoReview",
+          mode,
+          category: resolvedCategory,
+          suggestedCategory,
+          inferredCategory: inferredCategory || null,
+          confidence: Number(suggested.confidence || 0)
+        });
+        return;
+      }
+
       const signalProductName = shouldUseGeneratedName
         ? generatedName
         : (form.productName || "");
       const matchedPreset = pickPresetBySignal(presets, suggested, signalProductName);
-      const resolvedTemplate = matchedPreset || presets[0] || aiTemplate;
+      const resolvedTemplate = matchedPreset || defaultTemplate;
+      const aiHighlightsText = toVideoSuggestHighlights(suggested.highlights).join("\n");
+      const templateHighlightsText = normalizeHighlightsMultiline(resolvedTemplate?.highlights || "");
 
       setCategoryGroupFilter(nextGroup);
-    setForm((prev) => ({
-      ...prev,
-      productName: shouldUseGeneratedName ? generatedName : prev.productName,
-      category: resolvedCategory,
+      setForm((prev) => ({
+        ...prev,
+        productName: shouldUseGeneratedName ? generatedName : prev.productName,
+        category: resolvedCategory,
         durationSec: sanitizeDurationPreset(resolvedTemplate?.durationSec || prev.durationSec || 45),
         scriptMode: resolvedTemplate?.scriptMode || prev.scriptMode || "standard",
         priceSegment: normalizePriceSegment(resolvedTemplate?.priceSegment || prev.priceSegment || "mid"),
         industryPreset: resolvedTemplate?.value || prev.industryPreset,
-        ...(shouldSoftApply
-          ? {}
-          : {
-              channel: Number.isFinite(Number(suggested.channel)) ? Number(suggested.channel) : defaults.channel,
-          openingStyle: Number.isFinite(Number(suggested.tone))
+        channel: Number.isFinite(Number(suggested.channel)) ? Number(suggested.channel) : defaults.channel,
+        openingStyle: Number.isFinite(Number(suggested.tone))
             ? Math.max(0, Math.min(4, Number(suggested.tone)))
             : defaults.openingStyle,
-              mood: mapSuggestMoodLabel(language, suggested.mood),
-              targetCustomer: cleanText(suggested.targetCustomer || "") || prev.targetCustomer,
-              painPoint: cleanText(suggested.shortDescription || "") || prev.painPoint,
-              highlights: toVideoSuggestHighlights(suggested.highlights).join("\n") || prev.highlights,
-              proofPoint: cleanText(suggested.attributes?.[0]?.value || suggested.shortDescription || "") || prev.proofPoint
-            })
+        mood: mapSuggestMoodLabel(language, suggested.mood),
+        targetCustomer: cleanText(suggested.targetCustomer || resolvedTemplate?.targetCustomer || "") || prev.targetCustomer,
+        painPoint: cleanText(suggested.shortDescription || resolvedTemplate?.painPoint || "") || prev.painPoint,
+        highlights: aiHighlightsText || templateHighlightsText || prev.highlights,
+        proofPoint: cleanText(suggested.attributes?.[0]?.value || suggested.shortDescription || resolvedTemplate?.proofPoint || "") || prev.proofPoint
       }));
       setVariantOpeningStyles((prev) => {
         const inferredStyle = Number.isFinite(Number(suggested?.tone))
           ? Math.max(0, Math.min(4, Number(suggested.tone)))
           : defaults.openingStyle;
-        if (!Array.isArray(prev) || !prev.length) return [inferredStyle];
+        if (!Array.isArray(prev) || !prev.length) return [coerceOpeningStyleForPlan(inferredStyle, isProPlan, 0)];
         const next = [...prev];
-        next[0] = inferredStyle;
-        return next;
+        next[0] = coerceOpeningStyleForPlan(inferredStyle, isProPlan, 0);
+        return coerceOpeningStyleListForPlan(next, isProPlan);
+      });
+      setVariantStylePresets((prev) => {
+        const inferredStyle = Number.isFinite(Number(suggested?.tone))
+          ? Math.max(0, Math.min(4, Number(suggested.tone)))
+          : defaults.openingStyle;
+        const inferredPreset = coerceVideoStylePresetForPlan(videoOpeningStyleToPreset(inferredStyle), isProPlan, "balanced");
+        if (!Array.isArray(prev) || !prev.length) return [inferredPreset];
+        const next = [...prev];
+        next[0] = inferredPreset;
+        return coerceVideoStylePresetListForPlan(next, isProPlan, inferredPreset);
       });
       setAutoTemplateMeta({
         value: resolvedTemplate?.value || "",
@@ -1019,14 +1313,8 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       });
 
       setSuggestionPulseToken(Date.now());
-      if (lowSignalSuggestion) {
-        setMessage(language === "vi"
-          ? "Ảnh chưa đủ tín hiệu mạnh. Đã gợi ý template gần nhất để bạn chỉnh nhanh."
-          : "Image signal is weak. Applied nearest template suggestion so you can refine quickly.");
-      } else if (hasCategoryConflict && mode === "manual") {
-        setMessage(language === "vi"
-          ? "Ảnh và tên sản phẩm đang lệch nhóm ngành, vui lòng kiểm tra lại trước khi tạo kịch bản."
-          : "Image and product name suggest different categories. Please verify before generating the script.");
+      if (hasCategoryConflict && mode === "manual") {
+        setMessage(getAnalysisMessage(language, "conflict"));
       } else {
         setMessage("");
       }
@@ -1036,7 +1324,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         category: resolvedCategory,
         suggestedCategory,
         inferredCategory: inferredCategory || null,
-        lowSignal: lowSignalSuggestion,
+        lowSignal: false,
         mode,
         confidence: Number(suggested.confidence || 0)
       });
@@ -1085,9 +1373,28 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         priceSegment: normalizePriceSegment(form.priceSegment || "mid"),
         industryPreset: form.industryPreset || "",
         variantCount: improved ? 1 : (isProPlan ? variantCount : 1),
+        stylePreset: coerceVideoStylePresetForPlan(
+          variantStylePresets?.[0] || videoOpeningStyleToPreset(form.openingStyle),
+          isProPlan,
+          videoOpeningStyleToPreset(form.openingStyle)
+        ),
+        variantStylePresets: coerceVideoStylePresetListForPlan(
+          isProPlan
+            ? buildVariantStylePresetList(variantCount, variantStylePresets?.[0] || videoOpeningStyleToPreset(form.openingStyle), variantStylePresets)
+            : [variantStylePresets?.[0] || videoOpeningStyleToPreset(form.openingStyle)],
+          isProPlan,
+          videoOpeningStyleToPreset(form.openingStyle)
+        ),
         variantOpeningStyles: isProPlan
-          ? buildVariantOpeningStyleList(improved ? 1 : variantCount, form.openingStyle, variantOpeningStyles)
-          : [clampOpeningStyle(form.openingStyle, 0)],
+          ? coerceOpeningStyleListForPlan(
+              buildVariantStylePresetList(
+                improved ? 1 : variantCount,
+                variantStylePresets?.[0] || videoOpeningStyleToPreset(form.openingStyle),
+                variantStylePresets
+              ).map((stylePreset) => videoStylePresetToOpeningStyle(stylePreset, form.openingStyle)),
+              isProPlan
+            )
+          : [coerceOpeningStyleForPlan(form.openingStyle, isProPlan, 0)],
         improved,
         previousResult: improved && activeVariant
           ? {
@@ -1096,7 +1403,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
               variantStyleLabel: activeVariant?.variantStyleLabel || activeVariant?.styleLabel || "",
               openingStyle: Number.isFinite(Number(activeVariant?.openingStyle))
                 ? Number(activeVariant.openingStyle)
-                : clampOpeningStyle(form.openingStyle, 0)
+                : coerceOpeningStyleForPlan(form.openingStyle, isProPlan, 0)
             }
           : null
       });
@@ -1105,12 +1412,19 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ? data.variants
         : (Array.isArray(responseScript?.variants) && responseScript.variants.length ? responseScript.variants : (responseScript ? [responseScript] : []));
       const normalizedVariants = responseVariants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
-        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+        const styleKey = coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5);
+        const stylePreset = coerceVideoStylePresetForPlan(
+          normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+          isProPlan,
+          videoOpeningStyleToPreset(styleKey)
+        );
+        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
         return {
           ...variant,
           historyId: variant?.historyId || data?.historyIds?.[index] || null,
           openingStyle: styleKey,
+          stylePreset,
+          variantStylePreset: stylePreset,
           variantStyleLabel: styleLabel,
           styleLabel
         };
@@ -1128,8 +1442,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       } : null);
       setVariantOpeningStyles(
         normalizedVariants.length
-          ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-          : [clampOpeningStyle(form.openingStyle, 0)]
+          ? normalizedVariants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+          : [coerceOpeningStyleForPlan(form.openingStyle, isProPlan, 0)]
+      );
+      setVariantStylePresets(
+        deriveVariantStylePresetsFromVariants(
+          normalizedVariants,
+          isProPlan,
+          normalizedVariants?.[0]?.openingStyle ?? form?.openingStyle ?? 0
+        )
       );
       if (data?.historyId) {
         setActiveHistoryId(data.historyId);
@@ -1141,13 +1462,21 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
         setVariantOpeningStyles(
           Array.isArray(hydrated?.variants) && hydrated.variants.length
-            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-            : [clampOpeningStyle(form.openingStyle, 0)]
+            ? hydrated.variants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+            : [coerceOpeningStyleForPlan(form.openingStyle, isProPlan, 0)]
+        );
+        setVariantStylePresets(
+          deriveVariantStylePresetsFromVariants(
+            hydrated?.variants || [],
+            isProPlan,
+            hydrated?.variants?.[0]?.openingStyle ?? form?.openingStyle ?? 0
+          )
         );
         setActiveHistoryId(hydrated?.historyId || data?.historyId || null);
       }
 
       await historyActions.refresh();
+      await refreshSessionQuota({ force: true });
       trackEvent("generate.video-script.success", {
         category: form.category,
         channel: form.channel,
@@ -1167,13 +1496,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       const fallback = copy?.messages?.generateError || "Không thể tạo nội dung lúc này.";
       const raw = error.message || fallback;
       setMessage(localizeKnownMessage(raw, copy) || raw);
-      fetch(routes.api.session, { credentials: "include" })
-        .then((res) => res.json())
-        .then((data) => {
-          setSession(data?.user || null);
-          setGenerateQuota(data?.user?.generateQuota || data?.guestQuota || null);
-        })
-        .catch(() => {});
+      await refreshSessionQuota({ force: true });
       trackEvent("generate.video-script.failed", {
         category: form.category,
         channel: form.channel,
@@ -1232,12 +1555,19 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ? updatedResult.variants
         : (updatedResult ? [updatedResult] : []);
       const normalizedUpdatedVariants = updatedVariants.map((variant, index) => {
-        const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
-        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+        const styleKey = coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5);
+        const stylePreset = coerceVideoStylePresetForPlan(
+          normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+          isProPlan,
+          videoOpeningStyleToPreset(styleKey)
+        );
+        const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
         return {
           ...variant,
           historyId: variant?.historyId || updatedItem?.id || null,
           openingStyle: styleKey,
+          stylePreset,
+          variantStylePreset: stylePreset,
           variantStyleLabel: styleLabel,
           styleLabel
         };
@@ -1255,8 +1585,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       setVariantCount(Math.max(1, normalizedUpdatedVariants.length || 1));
       setVariantOpeningStyles(
         normalizedUpdatedVariants.length
-          ? normalizedUpdatedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-          : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
+          ? normalizedUpdatedVariants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+          : [coerceOpeningStyleForPlan(updatedItem?.form?.openingStyle ?? form?.openingStyle, isProPlan, 0)]
+      );
+      setVariantStylePresets(
+        deriveVariantStylePresetsFromVariants(
+          normalizedUpdatedVariants,
+          isProPlan,
+          normalizedUpdatedVariants?.[0]?.openingStyle ?? updatedItem?.form?.openingStyle ?? form?.openingStyle ?? 0
+        )
       );
       setForm((prev) => ({
         ...prev,
@@ -1273,8 +1610,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
         setVariantOpeningStyles(
           Array.isArray(hydrated?.variants) && hydrated.variants.length
-            ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-            : [clampOpeningStyle(updatedItem?.form?.openingStyle ?? form?.openingStyle, 0)]
+            ? hydrated.variants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+            : [coerceOpeningStyleForPlan(updatedItem?.form?.openingStyle ?? form?.openingStyle, isProPlan, 0)]
+        );
+        setVariantStylePresets(
+          deriveVariantStylePresetsFromVariants(
+            hydrated?.variants || [],
+            isProPlan,
+            hydrated?.variants?.[0]?.openingStyle ?? updatedItem?.form?.openingStyle ?? form?.openingStyle ?? 0
+          )
         );
         setActiveHistoryId(hydrated?.historyId || nextHistoryId || null);
       }
@@ -1305,16 +1649,19 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     activeHistoryId,
     localizedConfig,
     openingStyleOptions,
+    variantStylePresetOptions,
     moodPresetOptions,
     scriptModeOptions,
     categoryOptions,
     industryPresetOptions,
     industryPresetCatalog,
     selectedIndustryPreset,
+    advancedFieldGroup,
     categoryGroupFilter,
     generateQuota,
     variantCount,
     variantOpeningStyles,
+    variantStylePresets,
     isProPlan,
     actions: {
       applySample,
@@ -1323,6 +1670,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       setField,
       setVariantCount: setVariantCountValue,
       setVariantOpeningStyleAt,
+      setVariantStylePresetAt,
       setCategoryGroupFilter: setCategoryGroup,
       handleImageSelect,
       removeImage,
@@ -1337,12 +1685,19 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           ? itemResult.variants
           : (itemResult ? [itemResult] : []);
         const normalizedVariants = variants.map((variant, index) => {
-          const styleKey = clampOpeningStyle(variant?.openingStyle, index % 5);
-          const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getOpeningStyleLabel(language, styleKey)).trim();
+          const styleKey = coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5);
+          const stylePreset = coerceVideoStylePresetForPlan(
+            normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+            isProPlan,
+            videoOpeningStyleToPreset(styleKey)
+          );
+          const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
           return {
             ...variant,
             historyId: variant?.historyId || item?.id || null,
             openingStyle: styleKey,
+            stylePreset,
+            variantStylePreset: stylePreset,
             variantStyleLabel: styleLabel,
             styleLabel
           };
@@ -1360,8 +1715,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         setVariantCount(Math.max(1, normalizedVariants.length || 1));
         setVariantOpeningStyles(
           normalizedVariants.length
-            ? normalizedVariants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-            : [clampOpeningStyle(item?.form?.openingStyle, 0)]
+            ? normalizedVariants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+            : [coerceOpeningStyleForPlan(item?.form?.openingStyle, isProPlan, 0)]
+        );
+        setVariantStylePresets(
+          deriveVariantStylePresetsFromVariants(
+            normalizedVariants,
+            isProPlan,
+            normalizedVariants?.[0]?.openingStyle ?? item?.form?.openingStyle ?? 0
+          )
         );
         setForm((prev) => ({
           ...prev,
@@ -1383,8 +1745,15 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
               setVariantCount(Math.max(1, hydrated?.variants?.length || 1));
               setVariantOpeningStyles(
                 Array.isArray(hydrated?.variants) && hydrated.variants.length
-                  ? hydrated.variants.map((variant, index) => clampOpeningStyle(variant?.openingStyle, index % 5))
-                  : [clampOpeningStyle(item?.form?.openingStyle, 0)]
+                  ? hydrated.variants.map((variant, index) => coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, index % 5))
+                  : [coerceOpeningStyleForPlan(item?.form?.openingStyle, isProPlan, 0)]
+              );
+              setVariantStylePresets(
+                deriveVariantStylePresetsFromVariants(
+                  hydrated?.variants || [],
+                  isProPlan,
+                  hydrated?.variants?.[0]?.openingStyle ?? item?.form?.openingStyle ?? 0
+                )
               );
             })
             .catch(() => {});

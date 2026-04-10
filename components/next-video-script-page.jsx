@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import NextPageFrame from "@/components/next-page-frame";
 import NextShellHeader from "@/components/next-shell-header";
 import NextSelectField from "@/components/next-select-field";
@@ -16,17 +16,22 @@ import { useVideoScriptWorkspace } from "@/hooks/use-video-script-workspace";
 import { getCopy } from "@/lib/i18n";
 import { copyResultText, downloadResultDoc } from "@/lib/client/result-export";
 import { getCategoryGroupOptions } from "@/lib/category-marketplace-presets";
+import { getSampleFieldPlaceholder } from "@/lib/product-config";
+import { getLocalizedProductConfig } from "@/lib/i18n-product-config";
 import { routes } from "@/lib/routes";
 
 const DURATION_PRESETS = [15, 30, 45, 60, 90];
+const FREE_ALLOWED_VIDEO_STYLE_PRESETS = new Set(["balanced", "expert", "lifestyle"]);
 
 function buildResultAsProductLike(result) {
   if (!result) return null;
+  const isVi = String(result?.lang || "").toLowerCase() === "vi";
+  const shotListLabel = isVi ? "Checklist quay:" : "Shot checklist:";
   const sceneBlocks = (result.scenes || []).map((scene) => {
     const label = scene.label || "Scene";
     const voice = scene.voice || "";
     const visual = scene.visual || "";
-    return `${label}\nVoice: ${voice}\nVisual: ${visual}`.trim();
+    return `${label}\n🎙 Voice: ${voice}\n🎬 Visual: ${visual}`.trim();
   });
   return {
     source: result.source || "fallback",
@@ -35,7 +40,7 @@ function buildResultAsProductLike(result) {
     paragraphs: [
       `${result.title || "Video script"}\n${result.hook || ""}`.trim(),
       sceneBlocks.join("\n\n"),
-      `${result.cta || ""}${result.shotList?.length ? `\n\nShot list:\n- ${result.shotList.join("\n- ")}` : ""}`.trim()
+      `${result.cta || ""}${result.shotList?.length ? `\n\n${shotListLabel}\n- ${result.shotList.join("\n- ")}` : ""}`.trim()
     ],
     hashtags: Array.isArray(result.hashtags) ? result.hashtags : []
   };
@@ -71,6 +76,52 @@ function parseSceneBlocksFromParagraph(paragraph = "", language = "vi") {
   }).filter((scene) => scene.voice || scene.visual);
 }
 
+function buildTemplateKeywordSeed({ productName = "", templateLabel = "", fallback = "" } = {}) {
+  const normalizeToken = (value = "") => String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase()
+    .trim();
+
+  const stopwords = new Set([
+    "va", "voi", "cho", "cua", "san", "pham", "template", "nganh", "hang", "video",
+    "thoi", "trang", "fashion", "category", "group", "danh", "muc",
+    "for", "with", "and", "the", "from", "by", "product"
+  ]);
+
+  const tokenize = (value = "") => String(value || "")
+    .replace(/[|,;:/\\]+/g, " ")
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => item.length >= 2)
+    .filter((item) => !stopwords.has(normalizeToken(item)));
+
+  const pickUnique = (tokens = [], max = 4) => {
+    const picked = [];
+    const seen = new Set();
+    for (const token of tokens) {
+      const key = normalizeToken(token);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      picked.push(token);
+      if (picked.length >= max) break;
+    }
+    return picked;
+  };
+
+  const productTokens = pickUnique(tokenize(productName), 4);
+  if (productTokens.length >= 2) {
+    return productTokens.join(" ");
+  }
+
+  const templateTokens = pickUnique(tokenize(templateLabel), 3);
+  const fallbackTokens = pickUnique(tokenize(fallback), 1);
+  const merged = pickUnique([...productTokens, ...templateTokens, ...fallbackTokens], 4);
+  return merged.join(" ");
+}
+
 export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const { language, setLanguage } = useUiLanguage("vi");
   const copy = getCopy(language);
@@ -92,15 +143,17 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     activeHistoryId,
     localizedConfig,
     openingStyleOptions,
+    variantStylePresetOptions,
     scriptModeOptions,
     categoryOptions,
     industryPresetOptions,
     industryPresetCatalog,
     selectedIndustryPreset,
+    advancedFieldGroup,
     categoryGroupFilter,
     generateQuota,
     variantCount,
-    variantOpeningStyles,
+    variantStylePresets,
     isProPlan,
     actions
   } = useVideoScriptWorkspace(language, { initialHistoryId });
@@ -109,6 +162,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const [showProVariantPopup, setShowProVariantPopup] = useState(false);
   const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
   const [portalReady, setPortalReady] = useState(false);
+  const outputPanelRef = useRef(null);
   const categoryGroupOptions = getCategoryGroupOptions(language);
   const filteredIndustryPresetOptions = useMemo(() => {
     const keyword = String(templateKeyword || "").trim().toLowerCase();
@@ -124,6 +178,65 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     return filtered.length ? filtered : industryPresetOptions;
   }, [templateKeyword, industryPresetOptions, industryPresetCatalog]);
 
+  const categoryFieldPlaceholder = useMemo(() => {
+    const category = String(form?.category || "other");
+    const pick = (field, fallback = "") => getSampleFieldPlaceholder(category, field, fallback);
+
+    return {
+      productName: isVi
+        ? `Ví dụ: ${pick("productName", "Sản phẩm nổi bật theo ngành")}`
+        : `Example: ${pick("productName", "Top product by category")}`,
+      targetCustomer: isVi
+        ? `Ví dụ: ${pick("targetCustomer", "Khách mục tiêu chính theo ngành")}`
+        : `Example: ${pick("targetCustomer", "Primary target customer by category")}`,
+      proofPoint: isVi
+        ? `Ví dụ: ${pick("shortDescription", "Kết quả thực tế theo bối cảnh dùng")}`
+        : `Example: ${pick("shortDescription", "Practical result in real usage")}`,
+      painPoint: isVi
+        ? `Ví dụ: ${pick("shortDescription", "Nỗi đau cốt lõi khiến khách muốn mua")}`
+        : `Example: ${pick("shortDescription", "Core pain point driving purchase")}`,
+      highlights: pick("highlights", isVi ? "Điểm mạnh rõ\nDễ dùng\nĐáng tiền" : "Clear strengths\nEasy to use\nWorth the money"),
+      usage: isVi
+        ? `Ví dụ: ${pick("usage", "Dùng theo nhu cầu thực tế")}`
+        : `Example: ${pick("usage", "Use in daily practical context")}`,
+      skinConcern: isVi
+        ? `Ví dụ: ${pick("skinConcern", "Vấn đề chính theo nhóm da")}`
+        : `Example: ${pick("skinConcern", "Main concern by skin profile")}`,
+      routineStep: isVi
+        ? `Ví dụ: ${pick("routineStep", "Bước routine phù hợp")}`
+        : `Example: ${pick("routineStep", "Suitable routine step")}`,
+      dimensions: isVi
+        ? `Ví dụ: ${pick("dimensions", "Kích thước/Dung tích theo sản phẩm")}`
+        : `Example: ${pick("dimensions", "Dimensions/Capacity by product")}`,
+      warranty: isVi
+        ? `Ví dụ: ${pick("warranty", "Bảo hành theo ngành")}`
+        : `Example: ${pick("warranty", "Warranty by category")}`,
+      usageSpace: isVi
+        ? `Ví dụ: ${pick("usageSpace", "Không gian dùng phù hợp")}`
+        : `Example: ${pick("usageSpace", "Best-fit usage space")}`,
+      specs: isVi
+        ? `Ví dụ: ${pick("specs", "Thông số chính dễ hiểu")}`
+        : `Example: ${pick("specs", "Clear key specs")}`,
+      compatibility: isVi
+        ? `Ví dụ: ${pick("compatibility", "Tương thích thiết bị/hệ")}`
+        : `Example: ${pick("compatibility", "Device/system compatibility")}`,
+      sizeGuide: isVi
+        ? `Ví dụ: ${pick("sizeGuide", "Bảng size theo đối tượng")}`
+        : `Example: ${pick("sizeGuide", "Size guide by fit group")}`,
+      careGuide: isVi
+        ? `Ví dụ: ${pick("careGuide", "Hướng dẫn bảo quản")}`
+        : `Example: ${pick("careGuide", "Care instructions")}`,
+      exchangePolicy: isVi
+        ? `Ví dụ: ${pick("exchangePolicy", "Chính sách đổi trả phù hợp")}`
+        : `Example: ${pick("exchangePolicy", "Exchange policy details")}`
+    };
+  }, [form?.category, isVi]);
+
+  const categoryHintMap = useMemo(
+    () => getLocalizedProductConfig(language).categoryHints || {},
+    [language]
+  );
+
   const outputData = buildResultAsProductLike(result);
   const videoQuota = generateQuota?.videoScript || null;
   const isPro = Boolean(generateQuota?.isPro || session?.plan === "pro" || isProPlan);
@@ -138,20 +251,28 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay.`
       : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today.`);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
-  const resolvedVariantOpeningStyles = (() => {
-    const sequence = [0, 1, 2, 3, 4];
-    const seed = Number.isFinite(Number(form?.openingStyle)) ? Math.max(0, Math.min(4, Number(form.openingStyle))) : 0;
-    const rotation = [seed, ...sequence.filter((item) => item !== seed)];
-    const next = [];
+  const stylePresetOptionsForSelect = variantStylePresetOptions.map((option) => {
+    if (isProPlan || FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value)) {
+      return option;
+    }
+    return {
+      value: option.value,
+      label: `${option.label} (${isVi ? "Pro" : "Pro"})`
+    };
+  });
+  const resolvedVariantStylePresets = (() => {
+    const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0;
+    const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];
+    const fallbackPreset = openingToPreset[Math.max(0, Math.min(4, seedStyle))] || "balanced";
     const size = isProPlan ? normalizedVariantCount : 1;
+    const allowed = new Set(variantStylePresetOptions.map((item) => item.value));
+    const next = [];
     for (let index = 0; index < size; index += 1) {
-      const parsed = Number(variantOpeningStyles?.[index]);
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 4) {
-        next.push(parsed);
-      } else if (size > 1) {
-        next.push(rotation[index % rotation.length] || seed);
+      const preset = String(variantStylePresets?.[index] || "").trim().toLowerCase();
+      if (allowed.has(preset)) {
+        next.push(preset);
       } else {
-        next.push(seed);
+        next.push(fallbackPreset);
       }
     }
     return next;
@@ -162,14 +283,14 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     ? result.variants.map((variant, index) => ({
       ...buildResultAsProductLike(variant),
       historyId: variant?.historyId || result?.historyId || null,
-      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || (openingStyleOptions[Number(variant?.openingStyle ?? index % 5)] || `${isVi ? "Bản" : "Variant"} ${index + 1}`),
+      variantStyleLabel: variant?.variantStyleLabel || variant?.styleLabel || `${isVi ? "Bản" : "Variant"} ${index + 1}`,
       openingStyle: Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : (index % 5),
       variantGroupId: variant?.variantGroupId || result?.variantGroupId || ""
     }))
     : (outputData ? [{
       ...outputData,
       historyId: result?.historyId || null,
-      variantStyleLabel: result?.variantStyleLabel || openingStyleOptions[Number(form?.openingStyle) || 0],
+      variantStyleLabel: result?.variantStyleLabel || `${isVi ? "Bản" : "Variant"} 1`,
       openingStyle: Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0,
       variantGroupId: result?.variantGroupId || ""
     }] : []);
@@ -180,9 +301,17 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     const mode = String(form?.scriptMode || "standard").toLowerCase() === "teleprompter"
       ? (isVi ? "Teleprompter" : "Teleprompter")
       : (isVi ? "Tiêu chuẩn" : "Standard");
-    const opening = openingStyleOptions[profileOpeningIdx] || "";
+    const opening = openingStyleOptions[Math.max(0, Math.min(openingStyleOptions.length - 1, profileOpeningIdx || 0))] || "";
     return opening ? `${mode} · ${opening}` : mode;
   })();
+
+  function scrollToOutputPanel() {
+    if (typeof window === "undefined") return;
+    const node = outputPanelRef.current;
+    if (!node) return;
+    const top = Math.max(0, window.scrollY + node.getBoundingClientRect().top - 88);
+    window.scrollTo({ top, behavior: "smooth" });
+  }
 
   useEffect(() => {
     setPortalReady(true);
@@ -197,6 +326,27 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [showProVariantPopup]);
+
+  useEffect(() => {
+    if (!suggestionPulseToken) return;
+
+    const generatedName = String(suggestion?.generatedProductName || "").trim();
+    const hasDetectedName = String(suggestion?.analysisState || "").toLowerCase() !== "no_data" && generatedName;
+    const seed = buildTemplateKeywordSeed({
+      productName: hasDetectedName ? generatedName : form.productName,
+      templateLabel: selectedIndustryPreset?.label || "",
+      fallback: form.category
+    });
+    if (!seed) return;
+    setTemplateKeyword(seed);
+  }, [
+    suggestionPulseToken,
+    suggestion?.analysisState,
+    suggestion?.generatedProductName,
+    form.productName,
+    form.category,
+    selectedIndustryPreset?.label
+  ]);
 
   function openProVariantPopup(nextCount = 2) {
     setRequestedProVariantCount(Math.max(2, Math.min(5, Number(nextCount) || 2)));
@@ -215,6 +365,15 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       return;
     }
     actions.setVariantCount?.(normalized);
+  }
+
+  function handleStyleSelect(index, value) {
+    const nextValue = String(value || "balanced").trim().toLowerCase();
+    if (!isProPlan && !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(nextValue)) {
+      openProVariantPopup(index > 0 ? Math.max(2, normalizedVariantCount) : 2);
+      return;
+    }
+    actions.setVariantStylePresetAt?.(index, nextValue);
   }
 
   function renderProUpsellPopup() {
@@ -340,11 +499,11 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   return (
     <NextPageFrame>
       <NextShellHeader
-        eyebrow="SellerScript"
+        eyebrow="Seller Studio"
         title={isVi ? "Tạo kịch bản video bán hàng giữ người xem ngay 3 giây đầu" : "Create high-conversion video scripts that hook viewers in 3 seconds"}
         subtitle={isVi
-          ? "Chỉ cần brief ngắn và ảnh sản phẩm, AI sẽ tạo hook mở đầu, flow cảnh quay, CTA và hashtag sẵn để bạn quay nhanh và chốt đơn tốt hơn."
-          : "With a short brief and product images, AI generates hooks, scene flow, CTA, and hashtags so you can produce faster and convert better."}
+          ? "Chỉ cần brief ngắn và ảnh sản phẩm, hệ thống sẽ tạo hook mở đầu, flow cảnh quay, CTA và hashtag sẵn để bạn quay nhanh và chốt đơn tốt hơn."
+          : "With a short brief and product images, the system generates hooks, scene flow, CTA, and hashtags so you can produce faster and convert better."}
         user={session}
         language={language}
         onLanguageChange={setLanguage}
@@ -368,20 +527,6 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 : "Tip: the more specific the pain point, the stronger your opening hook retention."}
             </div>
 
-            <div className="field-helper">
-              {isVi
-                ? "Shopee/TikTok tip: chọn Template ngành hàng rồi bấm Áp dụng template ngành để ra brief đúng vibe từng ngách."
-                : "Shopee/TikTok tip: pick an industry template then apply it for niche-ready brief direction."}
-            </div>
-
-            <div className="field-helper group-filter-hint">
-              {isVi ? "Lọc danh mục theo ngành hàng lớn:" : "Filter categories by major vertical:"}
-              <span className="tag">{isVi ? "Thời trang, làm đẹp" : "Fashion and beauty"}</span>
-              <span className="tag">{isVi ? "Điện tử, công nghệ" : "Electronics and tech"}</span>
-              <span className="tag">{isVi ? "Mẹ bé, sức khỏe" : "Mother baby and health"}</span>
-              <span className="tag">{isVi ? "Nhà cửa, đời sống" : "Home and living"}</span>
-            </div>
-
             {suggesting ? (
               <div className="analysis-progress-card" role="status" aria-live="polite">
                 <div className="analysis-progress-visual" aria-hidden="true">
@@ -391,7 +536,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 </div>
                 <div className="analysis-progress-copy">
                   <strong>{isVi ? "Đang phân tích ảnh cho kịch bản video..." : "Analyzing images for video script..."}</strong>
-                  <span>{isVi ? "AI đang tự điền ngành hàng, brief và điểm nổi bật theo ảnh." : "AI is auto-filling category, brief, and highlights from image cues."}</span>
+                  <span>{isVi ? "Hệ thống đang tự điền ngành hàng, brief và điểm nổi bật theo ảnh." : "The system is auto-filling category, brief, and highlights from image cues."}</span>
                 </div>
               </div>
             ) : null}
@@ -412,7 +557,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
               label={isVi ? "Tên sản phẩm" : "Product name"}
               value={form.productName}
               onChange={(value) => actions.setField("productName", value)}
-              placeholder={isVi ? "Ví dụ: Bộ nồi chống dính 5 món" : "Example: 5-piece non-stick cookware set"}
+              placeholder={categoryFieldPlaceholder.productName}
             />
 
             <div className="form-grid">
@@ -451,7 +596,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
 
               {autoTemplateMeta?.value && autoTemplateMeta.value === form.industryPreset ? (
                 <div className="field-helper ai-template-badge">
-                  <span className="tag">AI</span>
+                  <span className="tag">AUTO</span>
                   <span>{isVi ? `Đề xuất tự động: ${autoTemplateMeta.label || form.industryPreset}` : `Auto suggested: ${autoTemplateMeta.label || form.industryPreset}`}</span>
                 </div>
               ) : null}
@@ -465,10 +610,10 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             </div>
 
             <NextTextField
-              label={isVi ? "Tìm template theo từ khóa" : "Template keyword search"}
+              label={isVi ? "Từ khóa lọc template" : "Template keyword filter"}
               value={templateKeyword}
               onChange={setTemplateKeyword}
-              placeholder={isVi ? "Ví dụ: mụn, balo, running, văn phòng..." : "Example: acne, backpack, running, office..."}
+              placeholder={isVi ? "Ví dụ: đầm midi, tai nghe chống ồn, máy xay mini..." : "Example: midi dress, noise-cancelling earbuds, mini blender..."}
             />
 
             {selectedIndustryPreset ? (
@@ -488,31 +633,135 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             ) : null}
 
             <NextTextField
-              label={isVi ? "Khách hàng mục tiêu" : "Target customer"}
+              label={isVi ? "Khách hàng mục tiêu chính" : "Primary target customer"}
               value={form.targetCustomer}
               onChange={(value) => actions.setField("targetCustomer", value)}
-              placeholder={isVi ? "Ví dụ: Mẹ bỉm bận rộn cần tiết kiệm thời gian" : "Example: Busy moms who need quick daily convenience"}
+              placeholder={categoryHintMap?.[form.category]?.target || categoryFieldPlaceholder.targetCustomer}
             />
 
             <NextTextField
-              label={isVi ? "Kết quả/Minh chứng thực tế" : "Real result / proof"}
+              label={isVi ? "Kết quả/Bằng chứng thực tế" : "Real result / proof point"}
               value={form.proofPoint}
               onChange={(value) => actions.setField("proofPoint", value)}
-              placeholder={isVi ? "Ví dụ: Test 7 ngày, da đều màu hơn khi quay camera thường" : "Example: After 7 days, skin looked more even on normal camera"}
+              placeholder={categoryFieldPlaceholder.proofPoint}
             />
 
+            {advancedFieldGroup === "skincare" ? (
+              <div className="form-grid">
+                <NextTextField
+                  label={isVi ? "Cách dùng gợi ý" : "Suggested usage"}
+                  value={form.usage || ""}
+                  onChange={(value) => actions.setField("usage", value)}
+                  placeholder={categoryFieldPlaceholder.usage}
+                />
+                <NextTextField
+                  label={isVi ? "Vấn đề da chính" : "Main skin concern"}
+                  value={form.skinConcern || ""}
+                  onChange={(value) => actions.setField("skinConcern", value)}
+                  placeholder={categoryFieldPlaceholder.skinConcern}
+                />
+              </div>
+            ) : null}
+
+            {advancedFieldGroup === "skincare" ? (
+              <NextTextField
+                label={isVi ? "Bước routine" : "Routine step"}
+                value={form.routineStep || ""}
+                onChange={(value) => actions.setField("routineStep", value)}
+                placeholder={categoryFieldPlaceholder.routineStep}
+              />
+            ) : null}
+
+            {advancedFieldGroup === "home" ? (
+              <div className="form-grid">
+                <NextTextField
+                  label={isVi ? "Kích thước / dung tích" : "Dimensions / capacity"}
+                  value={form.dimensions || ""}
+                  onChange={(value) => actions.setField("dimensions", value)}
+                  placeholder={categoryFieldPlaceholder.dimensions}
+                />
+                <NextTextField
+                  label={isVi ? "Bảo hành" : "Warranty"}
+                  value={form.warranty || ""}
+                  onChange={(value) => actions.setField("warranty", value)}
+                  placeholder={categoryFieldPlaceholder.warranty}
+                />
+              </div>
+            ) : null}
+
+            {advancedFieldGroup === "home" ? (
+              <NextTextField
+                label={isVi ? "Không gian sử dụng" : "Usage space"}
+                value={form.usageSpace || ""}
+                onChange={(value) => actions.setField("usageSpace", value)}
+                placeholder={categoryFieldPlaceholder.usageSpace}
+              />
+            ) : null}
+
+            {advancedFieldGroup === "electronics" ? (
+              <div className="form-grid">
+                <NextTextField
+                  label={isVi ? "Thông số chính" : "Key specs"}
+                  value={form.specs || ""}
+                  onChange={(value) => actions.setField("specs", value)}
+                  placeholder={categoryFieldPlaceholder.specs}
+                />
+                <NextTextField
+                  label={isVi ? "Tương thích" : "Compatibility"}
+                  value={form.compatibility || ""}
+                  onChange={(value) => actions.setField("compatibility", value)}
+                  placeholder={categoryFieldPlaceholder.compatibility}
+                />
+              </div>
+            ) : null}
+
+            {advancedFieldGroup === "electronics" ? (
+              <NextTextField
+                label={isVi ? "Bảo hành" : "Warranty"}
+                value={form.warranty || ""}
+                onChange={(value) => actions.setField("warranty", value)}
+                placeholder={categoryFieldPlaceholder.warranty}
+              />
+            ) : null}
+
+            {advancedFieldGroup === "fashion" ? (
+              <div className="form-grid">
+                <NextTextField
+                  label={isVi ? "Bảng size" : "Size guide"}
+                  value={form.sizeGuide || ""}
+                  onChange={(value) => actions.setField("sizeGuide", value)}
+                  placeholder={categoryFieldPlaceholder.sizeGuide}
+                />
+                <NextTextField
+                  label={isVi ? "Hướng dẫn bảo quản" : "Care guide"}
+                  value={form.careGuide || ""}
+                  onChange={(value) => actions.setField("careGuide", value)}
+                  placeholder={categoryFieldPlaceholder.careGuide}
+                />
+              </div>
+            ) : null}
+
+            {advancedFieldGroup === "fashion" ? (
+              <NextTextField
+                label={isVi ? "Đổi trả / size" : "Exchange / sizing"}
+                value={form.exchangePolicy || ""}
+                onChange={(value) => actions.setField("exchangePolicy", value)}
+                placeholder={categoryFieldPlaceholder.exchangePolicy}
+              />
+            ) : null}
+
             <NextTextareaField
-              label={isVi ? "Đặt vấn đề chính" : "Core audience problem"}
+              label={isVi ? "Vấn đề chính của khách hàng" : "Core customer problem"}
               value={form.painPoint}
               onChange={(value) => actions.setField("painPoint", value)}
-              placeholder={isVi ? "Người xem đang bực ở điểm nào khiến họ muốn tìm giải pháp?" : "What pain point makes viewers search for a solution right now?"}
+              placeholder={categoryHintMap?.[form.category]?.short || categoryFieldPlaceholder.painPoint}
             />
 
             <NextTextareaField
-              label={isVi ? "Điểm nổi bật (mỗi dòng 1 ý)" : "Highlights (one per line)"}
+              label={isVi ? "Điểm nổi bật sản phẩm (mỗi dòng 1 ý)" : "Product highlights (one per line)"}
               value={form.highlights}
               onChange={(value) => actions.setField("highlights", value)}
-              placeholder={isVi ? "Nhỏ gọn\nDễ dùng\nHiệu quả thấy nhanh" : "Compact\nEasy to use\nFast visible result"}
+              placeholder={categoryHintMap?.[form.category]?.highlights || categoryFieldPlaceholder.highlights}
             />
 
             <div className="variant-inline-control">
@@ -534,25 +783,25 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                   <NextSelectField
                     key={`video-variant-style-${index + 1}`}
                     label={isVi ? `Phong cách nội dung bản ${index + 1}` : `Variant ${index + 1} style`}
-                    value={String(resolvedVariantOpeningStyles[index] ?? 0)}
-                    options={openingStyleOptions.map((label, idx) => ({ value: String(idx), label }))}
-                    onChange={(value) => actions.setVariantOpeningStyleAt?.(index, Number(value))}
+                    value={String(resolvedVariantStylePresets[index] ?? "balanced")}
+                    options={stylePresetOptionsForSelect}
+                    onChange={(value) => handleStyleSelect(index, value)}
                   />
                 ))
                 : (
                   <NextSelectField
                     label={isVi ? "Phong cách nội dung" : "Content style"}
-                    value={String(resolvedVariantOpeningStyles[0] ?? form.openingStyle ?? 0)}
-                    options={openingStyleOptions.map((label, idx) => ({ value: String(idx), label }))}
-                    onChange={(value) => actions.setVariantOpeningStyleAt?.(0, Number(value))}
+                    value={String(resolvedVariantStylePresets[0] || "balanced")}
+                    options={stylePresetOptionsForSelect}
+                    onChange={(value) => handleStyleSelect(0, value)}
                   />
                 )}
 
               {!isProPlan ? (
                 <p className="field-helper">
                   {isVi
-                    ? "Gói Free mặc định 1 bản. Khi chọn từ 2 bản, hệ thống sẽ mở popup nâng cấp Pro."
-                    : "Free plan is fixed at 1 variant. Selecting 2+ variants opens the Pro upgrade popup."}
+                    ? "Gói Free: dùng 1 bản và 3 phong cách mở đầu. Chọn bản/kiểu gắn (Pro) sẽ mở popup nâng cấp."
+                    : "Free plan: 1 variant and 3 opening styles. Selecting a (Pro) option opens the upgrade popup."}
                 </p>
               ) : (
                 <p className="field-helper">
@@ -579,7 +828,14 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             />
 
             <div className="submit-wrap">
-              <button type="button" className="primary-button" onClick={actions.generateVideoScript}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  scrollToOutputPanel();
+                  actions.generateVideoScript();
+                }}
+              >
                 {loading ? (isVi ? "Đang tạo kịch bản..." : "Generating script...") : (isVi ? "Tạo kịch bản video" : "Generate video script")}
               </button>
             </div>
@@ -599,7 +855,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
           </section>
         </section>
 
-        <section className="panel">
+        <section className="panel" ref={outputPanelRef}>
           <div className="panel-head">
             <h2 className="section-title">{isVi ? "Kết quả kịch bản" : "Script output"}</h2>
           </div>
@@ -609,7 +865,10 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             result={activeOutputVariant}
             message={message}
             session={session}
-            onImprove={() => actions.generateVideoScript({ improved: true })}
+            onImprove={() => {
+              scrollToOutputPanel();
+              actions.generateVideoScript({ improved: true });
+            }}
             onCopy={handleCopy}
             onDownload={handleDownload}
             editable

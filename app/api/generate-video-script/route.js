@@ -1,10 +1,50 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserFromCookiesAsync } from "@/lib/server/auth-service";
-import { generateVideoReviewScript, getVideoVariantStyleLabel } from "@/lib/server/video-script-service";
+import { generateVideoReviewScript } from "@/lib/server/video-script-service";
 import { buildImprovedVariantGroupId, createHistoryItemAsync } from "@/lib/server/history-service";
 import { buildQuotaExceededMessage, consumeGenerationQuotaAsync, ensureGuestQuotaCookie, ensureGuestQuotaUsageCookie } from "@/lib/server/generation-quota-service";
 import { ensurePlanInfoForUserAsync } from "@/lib/server/billing-service";
 import { createRequestContext, elapsedMs, logError, logInfo, withRequestId } from "@/lib/server/observability";
+import {
+  coerceVideoStylePresetForPlan,
+  coerceVideoStylePresetListForPlan,
+  getVideoStylePresetLabel,
+  normalizeVideoStylePreset,
+  videoOpeningStyleToPreset,
+  videoStylePresetToOpeningStyle
+} from "@/lib/video-style-presets";
+
+export const preferredRegion = ["sin1"];
+
+function normalizeOpeningStyle(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(4, Math.floor(parsed)));
+}
+
+function deriveVariantStylePresets(body = {}, isPro = false, variantCount = 1) {
+  const requestedStyle = normalizeVideoStylePreset(
+    body?.stylePreset || body?.variantStylePresets?.[0] || videoOpeningStyleToPreset(body?.openingStyle),
+    "balanced"
+  );
+  const stylePreset = coerceVideoStylePresetForPlan(requestedStyle, isPro, "balanced");
+  const normalizedList = coerceVideoStylePresetListForPlan(
+    Array.isArray(body?.variantStylePresets) && body.variantStylePresets.length
+      ? body.variantStylePresets
+      : [stylePreset],
+    isPro,
+    stylePreset
+  );
+
+  const next = [];
+  for (let index = 0; index < variantCount; index += 1) {
+    next.push(normalizedList[index] || normalizedList[0] || stylePreset);
+  }
+  return {
+    stylePreset,
+    variantStylePresets: next
+  };
+}
 
 export async function POST(request) {
   const ctx = createRequestContext(request, "/api/generate-video-script");
@@ -18,8 +58,22 @@ export async function POST(request) {
 
     const requestedVariantCount = Math.max(1, Math.min(5, Number(body?.variantCount || 1)));
     body.variantCount = isPro ? requestedVariantCount : 1;
+
+    const coercedStyles = deriveVariantStylePresets(body, isPro, body.variantCount);
+    body.stylePreset = coercedStyles.stylePreset;
+    body.variantStylePresets = coercedStyles.variantStylePresets;
+    body.openingStyle = normalizeOpeningStyle(
+      videoStylePresetToOpeningStyle(body.stylePreset, body?.openingStyle),
+      0
+    );
+    body.variantOpeningStyles = body.variantStylePresets.map((stylePreset) =>
+      normalizeOpeningStyle(videoStylePresetToOpeningStyle(stylePreset, body.openingStyle), body.openingStyle)
+    );
+
     if (Boolean(body?.improved)) {
       body.variantCount = 1;
+      body.variantStylePresets = [body.variantStylePresets[0] || body.stylePreset || "balanced"];
+      body.variantOpeningStyles = [body.variantOpeningStyles[0] ?? body.openingStyle];
     }
 
     const quota = await consumeGenerationQuotaAsync({
@@ -71,8 +125,21 @@ export async function POST(request) {
 
     for (let index = 0; index < variants.length; index += 1) {
       const variant = variants[index] || generated;
-      const openingStyle = Number.isFinite(Number(variant?.openingStyle)) ? Number(variant.openingStyle) : Number(body?.openingStyle || 0);
-      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoVariantStyleLabel(openingStyle, body?.lang || "vi")).trim();
+      const openingStyle = normalizeOpeningStyle(
+        Number.isFinite(Number(variant?.openingStyle))
+          ? Number(variant.openingStyle)
+          : Number(body?.variantOpeningStyles?.[index] ?? body?.openingStyle ?? 0),
+        0
+      );
+      const stylePreset = coerceVideoStylePresetForPlan(
+        normalizeVideoStylePreset(
+          variant?.stylePreset || variant?.variantStylePreset || body?.variantStylePresets?.[index] || body?.stylePreset || "",
+          videoOpeningStyleToPreset(openingStyle)
+        ),
+        isPro,
+        videoOpeningStyleToPreset(openingStyle)
+      );
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, body?.lang || "vi")).trim();
       const variantLabel = `${baseVariantLabel} · ${styleLabel || `V${index + 1}`}`;
       const title = body?.improved
         ? `${titleBase} · ${isVi ? "Bản cải tiến" : "Improved"} · ${styleLabel || `V${index + 1}`}`
@@ -96,6 +163,8 @@ export async function POST(request) {
           selectedVariant,
           variantIndex,
           openingStyle,
+          stylePreset,
+          variantStylePreset: stylePreset,
           variantStyleLabel: styleLabel || `V${index + 1}`
         },
         images: Array.isArray(body?.images) ? body.images : []
@@ -104,13 +173,26 @@ export async function POST(request) {
     }
 
     const responseVariants = variants.map((variant, index) => {
-      const openingStyle = Number.isFinite(Number(variant?.openingStyle))
-        ? Number(variant.openingStyle)
-        : Number(body?.openingStyle || 0);
-      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoVariantStyleLabel(openingStyle, body?.lang || "vi")).trim();
+      const openingStyle = normalizeOpeningStyle(
+        Number.isFinite(Number(variant?.openingStyle))
+          ? Number(variant.openingStyle)
+          : Number(body?.variantOpeningStyles?.[index] ?? body?.openingStyle ?? 0),
+        0
+      );
+      const stylePreset = coerceVideoStylePresetForPlan(
+        normalizeVideoStylePreset(
+          variant?.stylePreset || variant?.variantStylePreset || body?.variantStylePresets?.[index] || body?.stylePreset || "",
+          videoOpeningStyleToPreset(openingStyle)
+        ),
+        isPro,
+        videoOpeningStyleToPreset(openingStyle)
+      );
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, body?.lang || "vi")).trim();
       return {
         ...variant,
         openingStyle,
+        stylePreset,
+        variantStylePreset: stylePreset,
         variantStyleLabel: styleLabel,
         styleLabel,
         historyId: entries[index]?.id || null,
@@ -139,7 +221,17 @@ export async function POST(request) {
         ...primaryScript,
         variants: responseVariants,
         selectedVariant,
-        variantStyleLabel: primaryScript?.variantStyleLabel || primaryScript?.styleLabel || getVideoVariantStyleLabel(primaryScript?.openingStyle ?? body?.openingStyle, body?.lang || "vi")
+        variantStyleLabel:
+          primaryScript?.variantStyleLabel
+          || primaryScript?.styleLabel
+          || getVideoStylePresetLabel(
+            primaryScript?.stylePreset
+              || primaryScript?.variantStylePreset
+              || body?.variantStylePresets?.[selectedVariant]
+              || body?.stylePreset
+              || videoOpeningStyleToPreset(primaryScript?.openingStyle ?? body?.openingStyle),
+            body?.lang || "vi"
+          )
       },
       variants: responseVariants,
       selectedVariant,
@@ -158,6 +250,18 @@ export async function POST(request) {
     return response;
   } catch (error) {
     logError(ctx, "generate.video-script.failed", error, { ms: elapsedMs(ctx) });
+
+    const errorMessage = String(error?.message || "").toLowerCase();
+    if (/ai service is not configured|ai returned empty output|ai model unavailable|ai request timeout|responses_http_|chat_empty_output|responses_empty_output|http\s*4\d\d|http\s*5\d\d/.test(errorMessage)) {
+      return withRequestId(
+        NextResponse.json({
+          error: "Dịch vụ tạo nội dung đang tạm bận hoặc trả kết quả chưa hợp lệ. Vui lòng thử lại.",
+          code: "AI_UNAVAILABLE"
+        }, { status: 502 }),
+        ctx
+      );
+    }
+
     return withRequestId(
       NextResponse.json({ error: error.message || "Không thể tạo kịch bản video lúc này." }, { status: 400 }),
       ctx
