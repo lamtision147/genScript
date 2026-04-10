@@ -193,9 +193,7 @@ function sanitizeDurationPreset(value) {
 }
 
 function normalizePriceSegment(value) {
-  const safe = String(value || "").toLowerCase().trim();
-  if (["low", "mid", "high"].includes(safe)) return safe;
-  return "mid";
+  return cleanText(value).slice(0, 40);
 }
 
 function isLowSignalSuggestion(suggestion = null) {
@@ -524,7 +522,7 @@ function buildVideoSuggestedTemplate({ category = "other", suggestion = null, la
     openingStyle: Number.isFinite(Number(suggestion?.tone)) ? Math.max(0, Math.min(4, Number(suggestion.tone))) : 1,
     durationSec: 45,
     scriptMode: "standard",
-    priceSegment: "mid"
+    priceSegment: ""
   };
 }
 
@@ -571,7 +569,7 @@ function getIndustryPresetsByCategory(language, category) {
         openingStyle: toneToOpening[Math.max(0, Math.min(2, tone))],
         durationSec: duration,
         scriptMode: tone === 2 ? "teleprompter" : "standard",
-        priceSegment: "mid"
+        priceSegment: ""
       };
     });
   }
@@ -601,7 +599,7 @@ export function createEmptyVideoForm() {
     highlights: "",
     proofPoint: "",
     durationSec: 45,
-    priceSegment: "mid",
+    priceSegment: "",
     mood: defaults.moodVi,
     openingStyle: 4,
     scriptMode: "standard",
@@ -953,7 +951,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         ? "Sau 7 ngày dùng liên tục, da mịn hơn thấy rõ khi makeup"
         : "After 7 days, skin texture looks visibly smoother under makeup",
       durationSec: 45,
-      priceSegment: "mid",
+      priceSegment: "",
       mood: isVi ? defaults.moodVi : defaults.moodEn,
       openingStyle: 4,
         scriptMode: "standard",
@@ -1254,7 +1252,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
           mood: language === "vi" ? defaults.moodVi : defaults.moodEn,
           durationSec: sanitizeDurationPreset(defaultTemplate?.durationSec || prev.durationSec || 45),
           scriptMode: defaultTemplate?.scriptMode || prev.scriptMode || "standard",
-          priceSegment: normalizePriceSegment(defaultTemplate?.priceSegment || prev.priceSegment || "mid"),
+          priceSegment: normalizePriceSegment(defaultTemplate?.priceSegment || prev.priceSegment || ""),
           industryPreset: defaultTemplate?.value || prev.industryPreset,
           targetCustomer: cleanText(defaultTemplate?.targetCustomer || "") || prev.targetCustomer,
           painPoint: cleanText(defaultTemplate?.painPoint || "") || prev.painPoint,
@@ -1313,7 +1311,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         category: resolvedCategory,
         durationSec: sanitizeDurationPreset(resolvedTemplate?.durationSec || prev.durationSec || 45),
         scriptMode: resolvedTemplate?.scriptMode || prev.scriptMode || "standard",
-        priceSegment: normalizePriceSegment(resolvedTemplate?.priceSegment || prev.priceSegment || "mid"),
+        priceSegment: normalizePriceSegment(resolvedTemplate?.priceSegment || prev.priceSegment || ""),
         industryPreset: resolvedTemplate?.value || prev.industryPreset,
         channel: Number.isFinite(Number(suggested.channel)) ? Number(suggested.channel) : defaults.channel,
         openingStyle: Number.isFinite(Number(suggested.tone))
@@ -1409,7 +1407,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
         images: Array.isArray(form.images) ? form.images : [],
         durationSec: sanitizeDurationPreset(form.durationSec),
         scriptMode: form.scriptMode || "standard",
-        priceSegment: normalizePriceSegment(form.priceSegment || "mid"),
+        priceSegment: normalizePriceSegment(form.priceSegment || ""),
         industryPreset: form.industryPreset || "",
         variantCount: improved ? 1 : (isProPlan ? variantCount : 1),
         stylePreset: coerceVideoStylePresetForPlan(

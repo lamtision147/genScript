@@ -644,15 +644,11 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             </div>
 
             <div className="form-grid">
-              <NextSelectField
-                label={isVi ? "Mức giá mục tiêu" : "Target price segment"}
-                value={form.priceSegment || "mid"}
-                options={[
-                  { value: "low", label: isVi ? "Giá rẻ / dễ chốt" : "Low / budget" },
-                  { value: "mid", label: isVi ? "Tầm trung" : "Mid-range" },
-                  { value: "high", label: isVi ? "Cao cấp" : "Premium" }
-                ]}
+              <NextTextField
+                label={isVi ? "Mức giá mục tiêu" : "Target price note"}
+                value={form.priceSegment || ""}
                 onChange={(value) => actions.setField("priceSegment", value)}
+                placeholder={isVi ? "Ví dụ: chỉ 45k, chưa đến 200k, cỡ 3 ly trà sữa..." : "Example: around $9, under $25, like 2 coffees..."}
               />
 
               <NextSelectField

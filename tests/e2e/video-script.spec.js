@@ -514,6 +514,7 @@ test.describe("Video Script Page", () => {
       expect(body.variantCount).toBe(1);
       expect(body.variantStylePresets).toEqual(["expert"]);
       expect(body.variantOpeningStyles).toEqual([4]);
+      expect(body.priceSegment).toBe("chỉ 45k, chưa đến 200k");
 
       await route.fulfill({
         status: 200,
@@ -558,6 +559,7 @@ test.describe("Video Script Page", () => {
     await page.getByLabel("Tên sản phẩm").fill("Free api test");
     await page.getByLabel("Vấn đề chính của khách hàng").fill("Van de test");
     await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Y 1\nY 2\nY 3");
+    await page.getByLabel("Mức giá mục tiêu").fill("chỉ 45k, chưa đến 200k");
     await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
 
     await expect(page.getByText("Script free")).toBeVisible();
