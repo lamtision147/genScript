@@ -855,13 +855,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                   />
                 )}
 
-              {!isProPlan ? (
-                <p className="field-helper">
-                  {isVi
-                    ? "Gói Free: dùng 1 bản và 3 phong cách mở đầu. Chọn bản/kiểu gắn (Pro) sẽ mở popup nâng cấp."
-                    : "Free plan: 1 variant and 3 opening styles. Selecting a (Pro) option opens the upgrade popup."}
-                </p>
-              ) : (
+              {!isProPlan ? null : (
                 <p className="field-helper">
                   {isVi ? `Pro: đang tạo ${normalizedVariantCount} bản kịch bản video.` : `Pro: generating ${normalizedVariantCount} video script variants.`}
                 </p>
