@@ -648,7 +648,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
                 label={isVi ? "Mức giá mục tiêu" : "Target price note"}
                 value={form.priceSegment || ""}
                 onChange={(value) => actions.setField("priceSegment", value)}
-                placeholder={isVi ? "Ví dụ: chỉ 45k, chưa đến 200k, cỡ 3 ly trà sữa..." : "Example: around $9, under $25, like 2 coffees..."}
+                placeholder={isVi ? "100k, 200k, ..." : "100k, 200k, ..."}
               />
 
               <NextSelectField
