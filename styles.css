@@ -2897,7 +2897,7 @@ html[data-theme="dark"] .version-strip {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   padding: 20px;
   border-radius: 18px;
   border: 1px solid var(--brand-line);
@@ -2960,8 +2960,8 @@ html[data-theme="dark"] .result-readability-hint {
   min-height: 72px;
   outline: none;
   white-space: pre-wrap;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 17px;
+  line-height: 1.78;
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(56, 39, 24, 0.08);
@@ -2987,8 +2987,8 @@ html[data-theme="dark"] .textarea-block:hover {
 }
 
 .output-paragraph-1 {
-  font-size: 16px;
-  line-height: 1.72;
+  font-size: 19px;
+  line-height: 1.82;
 }
 
 .output-paragraph {
@@ -3017,8 +3017,8 @@ html[data-theme="dark"] .textarea-block:hover {
   padding: 8px 10px;
   border-radius: 10px;
   margin-top: 8px;
-  font-size: 14px;
-  line-height: 1.62;
+  font-size: 16px;
+  line-height: 1.72;
 }
 
 .video-scene-spacer {
@@ -3045,8 +3045,9 @@ html[data-theme="dark"] .textarea-block:hover {
   background: rgba(239, 141, 44, 0.14);
   border: 1px solid rgba(239, 141, 44, 0.28);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   margin-bottom: 8px;
+  font-size: 15px;
 }
 
 .video-scene-voice {
@@ -3842,7 +3843,7 @@ html[data-theme="dark"] .profile-plan-banner {
   background: linear-gradient(180deg, rgba(239, 141, 44, 0.12), rgba(255, 219, 173, 0.3));
   color: var(--accent-deep);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   transition: transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
 }
