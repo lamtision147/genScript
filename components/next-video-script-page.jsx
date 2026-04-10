@@ -287,8 +287,6 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
   const stylePresetOptionsForSelect = buildGroupedStyleOptions(variantStylePresetOptions, isProPlan, isVi);
   const resolvedVariantStylePresets = (() => {
-    const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 4;
-    const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];
     const fallbackPreset = "expert";
     const size = isProPlan ? normalizedVariantCount : 1;
     const allowed = new Set(variantStylePresetOptions.map((item) => item.value));

@@ -810,11 +810,11 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
 
   useEffect(() => {
     const targetCount = isProPlan ? variantCount : 1;
-    const seedOpeningStyle = coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 0);
+    const seedOpeningStyle = coerceOpeningStyleForPlan(form?.openingStyle, isProPlan, 4);
     const normalizedStyles = coerceVideoStylePresetListForPlan(
-      buildVariantStylePresetList(targetCount, videoOpeningStyleToPreset(seedOpeningStyle), variantStylePresets),
+      buildVariantStylePresetList(targetCount, variantStylePresets?.[0] || "expert", variantStylePresets),
       isProPlan,
-      videoOpeningStyleToPreset(seedOpeningStyle)
+      "expert"
     );
     const nextOpeningStyles = coerceOpeningStyleListForPlan(
       normalizedStyles.map((stylePreset) => videoStylePresetToOpeningStyle(stylePreset, seedOpeningStyle)),

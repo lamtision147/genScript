@@ -463,7 +463,7 @@ test.describe("Video Script Page", () => {
     await ensureLanguage(page, "vi");
 
     const styleSelect = page.getByLabel("Phong cách nội dung");
-    await expect(styleSelect).toHaveValue("balanced");
+    await expect(styleSelect).toHaveValue("expert");
 
     const options = await styleSelect.locator("option").evaluateAll((nodes) =>
       nodes.map((node) => ({ value: node.getAttribute("value"), text: node.textContent || "" }))
@@ -472,7 +472,7 @@ test.describe("Video Script Page", () => {
 
     await styleSelect.selectOption("storytelling");
     await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
-    await expect(styleSelect).toHaveValue("balanced");
+    await expect(styleSelect).toHaveValue("expert");
 
     await page.getByLabel("Số bản nội dung").selectOption("2");
     await expect(page.locator("#video-pro-upsell-title")).toBeVisible();
@@ -516,8 +516,8 @@ test.describe("Video Script Page", () => {
     await page.route("**/api/generate-video-script", async (route) => {
       const body = route.request().postDataJSON();
       expect(body.variantCount).toBe(1);
-      expect(body.variantStylePresets).toEqual(["balanced"]);
-      expect(body.variantOpeningStyles).toEqual([0]);
+      expect(body.variantStylePresets).toEqual(["expert"]);
+      expect(body.variantOpeningStyles).toEqual([4]);
 
       await route.fulfill({
         status: 200,
