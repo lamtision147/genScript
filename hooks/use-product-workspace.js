@@ -53,6 +53,7 @@ function inferStylePresetFromFields(source = {}) {
   const mood = Number(source?.mood);
 
   if (tone === 1 && brandStyle === 2 && mood === 3) return "expert";
+  if (tone === 1 && brandStyle === 0 && mood === 3) return "expert";
   if (tone === 2 && brandStyle === 1 && mood === 3) return "sales";
   if (tone === 0 && brandStyle === 1 && mood === 1) return "lifestyle";
   if (tone === 1 && brandStyle === 2 && mood === 1) return "storytelling";
