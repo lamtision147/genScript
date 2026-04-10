@@ -23,6 +23,41 @@ import { routes } from "@/lib/routes";
 const DURATION_PRESETS = [15, 30, 45, 60, 90];
 const FREE_ALLOWED_VIDEO_STYLE_PRESETS = new Set(["balanced", "expert", "lifestyle"]);
 
+function buildGroupedStyleOptions(baseOptions = [], isProPlan = false, isVi = true) {
+  const list = Array.isArray(baseOptions) ? baseOptions : [];
+  const freeOptions = list.filter((option) => FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value));
+  const proOptions = list
+    .filter((option) => !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value))
+    .map((option) => ({
+      ...option,
+      label: `${option.label} (Pro)`
+    }));
+
+  if (isProPlan) {
+    return [
+      {
+        label: isVi ? "Phong cách thường" : "Free styles",
+        options: freeOptions
+      },
+      {
+        label: isVi ? "Phong cách Pro" : "Pro styles",
+        options: proOptions
+      }
+    ];
+  }
+
+  return [
+    {
+      label: isVi ? "Phong cách thường" : "Free styles",
+      options: freeOptions
+    },
+    {
+      label: isVi ? "Phong cách Pro (nâng cấp)" : "Pro styles (upgrade)",
+      options: proOptions
+    }
+  ];
+}
+
 function buildResultAsProductLike(result) {
   if (!result) return null;
   const isVi = String(result?.lang || "").toLowerCase() === "vi";
@@ -254,16 +289,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       ? `Free: còn ${videoQuota?.remaining ?? 5}/5 lượt tạo kịch bản hôm nay.`
       : `Free: ${videoQuota?.remaining ?? 5}/5 video generations left today.`);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
-  const proStyleTagText = isVi ? "Pro" : "Pro";
-  const allStylePresetOptionsWithTag = variantStylePresetOptions.map((option) => (
-    FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value)
-      ? option
-      : {
-          ...option,
-          label: `${option.label} (${proStyleTagText})`
-        }
-  ));
-  const stylePresetOptionsForSelect = allStylePresetOptionsWithTag;
+  const stylePresetOptionsForSelect = buildGroupedStyleOptions(variantStylePresetOptions, isProPlan, isVi);
   const resolvedVariantStylePresets = (() => {
     const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0;
     const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];

@@ -11,6 +11,41 @@ import { routes } from "@/lib/routes";
 
 const FREE_STYLE_PRESET_VALUES = new Set(["balanced", "expert", "lifestyle"]);
 
+function buildGroupedStyleOptions(baseOptions = [], isPro = false, language = "vi") {
+  const list = Array.isArray(baseOptions) ? baseOptions : [];
+  const freeOptions = list.filter((option) => isFreeAllowedStylePreset(option.value));
+  const proOptions = list
+    .filter((option) => !isFreeAllowedStylePreset(option.value))
+    .map((option) => ({
+      ...option,
+      label: `${option.label} (Pro)`
+    }));
+
+  if (isPro) {
+    return [
+      {
+        label: language === "vi" ? "Phong cách thường" : "Free styles",
+        options: freeOptions
+      },
+      {
+        label: language === "vi" ? "Phong cách Pro" : "Pro styles",
+        options: proOptions
+      }
+    ];
+  }
+
+  return [
+    {
+      label: language === "vi" ? "Phong cách thường" : "Free styles",
+      options: freeOptions
+    },
+    {
+      label: language === "vi" ? "Phong cách Pro (nâng cấp)" : "Pro styles (upgrade)",
+      options: proOptions
+    }
+  ];
+}
+
 function textLineCount(value) {
   if (!value) return 0;
   return String(value)
@@ -142,16 +177,7 @@ export default function NextProductFormPanel({
         { value: "minimalist", label: "Minimalist" },
         { value: "custom", label: "Custom manual" }
       ];
-  const proStyleTagText = language === "vi" ? "Pro" : "Pro";
-  const allStylePresetOptionsWithTag = stylePresetOptions.map((option) => (
-    isFreeAllowedStylePreset(option.value)
-      ? option
-      : {
-          ...option,
-          label: `${option.label} (${proStyleTagText})`
-        }
-  ));
-  const stylePresetOptionsForSelect = allStylePresetOptionsWithTag;
+  const stylePresetOptionsForSelect = buildGroupedStyleOptions(stylePresetOptions, isPro, language);
   const variantStylePresetOptions = stylePresetOptions.filter((option) => option.value !== "custom");
   const resolvedVariantStylePresets = (() => {
     const targetCount = isPro ? normalizedVariantCount : 1;
