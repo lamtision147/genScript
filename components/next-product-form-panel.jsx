@@ -104,7 +104,6 @@ export default function NextProductFormPanel({
   const isPro = String(sessionPlan || "free") === "pro";
   const [showProVariantPopup, setShowProVariantPopup] = useState(false);
   const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
-  const [stylePresetFilter, setStylePresetFilter] = useState(isPro ? "all" : "free");
   const stylePresetValue = inferStylePresetValue(form);
   const [portalReady, setPortalReady] = useState(false);
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
@@ -143,13 +142,7 @@ export default function NextProductFormPanel({
         { value: "minimalist", label: "Minimalist" },
         { value: "custom", label: "Custom manual" }
       ];
-  const freeStylePresetOptions = stylePresetOptions.filter((option) => isFreeAllowedStylePreset(option.value));
-  const proOnlyStylePresetOptions = stylePresetOptions.filter((option) => !isFreeAllowedStylePreset(option.value));
   const proStyleTagText = language === "vi" ? "Pro" : "Pro";
-  const proOnlyStylePresetOptionsWithTag = proOnlyStylePresetOptions.map((option) => ({
-    ...option,
-    label: `${option.label} (${proStyleTagText})`
-  }));
   const allStylePresetOptionsWithTag = stylePresetOptions.map((option) => (
     isFreeAllowedStylePreset(option.value)
       ? option
@@ -158,20 +151,7 @@ export default function NextProductFormPanel({
           label: `${option.label} (${proStyleTagText})`
         }
   ));
-  const stylePresetFilterOptions = [
-    { value: "free", label: language === "vi" ? `Thường (${freeStylePresetOptions.length})` : `Free (${freeStylePresetOptions.length})` },
-    { value: "pro", label: language === "vi" ? `Pro (${proOnlyStylePresetOptions.length})` : `Pro (${proOnlyStylePresetOptions.length})` },
-    { value: "all", label: language === "vi" ? `Tất cả (${stylePresetOptions.length})` : `All (${stylePresetOptions.length})` }
-  ];
-  const stylePresetOptionsForSelect = (() => {
-    if (stylePresetFilter === "pro") {
-      return proOnlyStylePresetOptionsWithTag.length ? proOnlyStylePresetOptionsWithTag : allStylePresetOptionsWithTag;
-    }
-    if (stylePresetFilter === "all") {
-      return allStylePresetOptionsWithTag;
-    }
-    return freeStylePresetOptions;
-  })();
+  const stylePresetOptionsForSelect = allStylePresetOptionsWithTag;
   const variantStylePresetOptions = stylePresetOptions.filter((option) => option.value !== "custom");
   const resolvedVariantStylePresets = (() => {
     const targetCount = isPro ? normalizedVariantCount : 1;
@@ -216,12 +196,6 @@ export default function NextProductFormPanel({
     setPortalReady(true);
     return () => setPortalReady(false);
   }, []);
-
-  useEffect(() => {
-    if (!isPro && stylePresetFilter === "all") {
-      setStylePresetFilter("free");
-    }
-  }, [isPro, stylePresetFilter]);
 
   useEffect(() => {
     if (!showProVariantPopup) return undefined;
@@ -529,22 +503,6 @@ export default function NextProductFormPanel({
                     }}
                   />
                 )}
-
-              <div className="style-filter-row">
-                <span className="style-filter-label">{language === "vi" ? "Bộ lọc danh sách phong cách" : "Style list filter"}</span>
-                <div className="style-filter-chips" role="group" aria-label={language === "vi" ? "Bộ lọc phong cách" : "Style filters"}>
-                  {stylePresetFilterOptions.map((option) => (
-                    <button
-                      key={`product-style-filter-${option.value}`}
-                      type="button"
-                      className={`ghost-button style-filter-chip ${stylePresetFilter === option.value ? "active" : ""}`}
-                      onClick={() => setStylePresetFilter(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {!isPro ? (
                 <p className="field-helper">

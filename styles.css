@@ -2222,32 +2222,6 @@ html[data-theme="dark"] .coming-soon-card {
   gap: 8px;
 }
 
-.style-filter-row {
-  display: grid;
-  gap: 6px;
-}
-
-.style-filter-label {
-  font-size: 12px;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-weight: 600;
-}
-
-.style-filter-chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.style-filter-chip {
-  min-height: 34px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 html[data-theme="dark"] .variant-inline-control {
   border-color: rgba(255, 159, 183, 0.22);
   background: rgba(45, 35, 43, 0.84);
