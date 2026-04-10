@@ -27,11 +27,7 @@ function buildGroupedStyleOptions(baseOptions = [], isProPlan = false, isVi = tr
   const list = Array.isArray(baseOptions) ? baseOptions : [];
   const freeOptions = list.filter((option) => FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value));
   const proOptions = list
-    .filter((option) => !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value))
-    .map((option) => ({
-      ...option,
-      label: `${option.label} (Pro)`
-    }));
+    .filter((option) => !FREE_ALLOWED_VIDEO_STYLE_PRESETS.has(option.value));
 
   if (isProPlan) {
     return [
@@ -291,9 +287,9 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const normalizedVariantCount = Math.max(1, Math.min(5, Number(variantCount) || 1));
   const stylePresetOptionsForSelect = buildGroupedStyleOptions(variantStylePresetOptions, isProPlan, isVi);
   const resolvedVariantStylePresets = (() => {
-    const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 0;
+    const seedStyle = Number.isFinite(Number(form?.openingStyle)) ? Number(form.openingStyle) : 4;
     const openingToPreset = ["balanced", "comparison", "sales", "storytelling", "socialproof"];
-    const fallbackPreset = openingToPreset[Math.max(0, Math.min(4, seedStyle))] || "balanced";
+    const fallbackPreset = openingToPreset[Math.max(0, Math.min(4, seedStyle))] || "expert";
     const size = isProPlan ? normalizedVariantCount : 1;
     const allowed = new Set(variantStylePresetOptions.map((item) => item.value));
     const next = [];

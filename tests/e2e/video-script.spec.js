@@ -469,7 +469,6 @@ test.describe("Video Script Page", () => {
       nodes.map((node) => ({ value: node.getAttribute("value"), text: node.textContent || "" }))
     );
     expect(options).toHaveLength(14);
-    expect(options.filter((item) => item.text.includes("(Pro)"))).toHaveLength(11);
 
     await styleSelect.selectOption("storytelling");
     await expect(page.locator("#video-pro-upsell-title")).toBeVisible();

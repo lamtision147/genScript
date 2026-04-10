@@ -27,9 +27,25 @@ import {
 } from "@/lib/product-workspace-helpers";
 
 const DRAFT_KEY = "seller-studio-next-product-draft";
-const MAX_IMAGE_COUNT = 4;
+const MAX_IMAGE_COUNT = 1;
 const ONBOARDING_STATE_KEY = "seller-studio-onboarding-state";
-const MULTI_STYLE_SEQUENCE = ["balanced", "expert", "sales", "lifestyle"];
+const MULTI_STYLE_SEQUENCE = [
+  "balanced",
+  "expert",
+  "sales",
+  "lifestyle",
+  "storytelling",
+  "socialproof",
+  "comparison",
+  "benefitstack",
+  "problemfirst",
+  "premium",
+  "urgencysoft",
+  "educational",
+  "community",
+  "minimalist"
+];
+const FREE_ALLOWED_STYLE_PRESETS = new Set(["balanced", "expert", "lifestyle"]);
 
 function inferStylePresetFromFields(source = {}) {
   const tone = Number(source?.tone);
@@ -39,16 +55,53 @@ function inferStylePresetFromFields(source = {}) {
   if (tone === 1 && brandStyle === 2 && mood === 3) return "expert";
   if (tone === 2 && brandStyle === 1 && mood === 3) return "sales";
   if (tone === 0 && brandStyle === 1 && mood === 1) return "lifestyle";
+  if (tone === 1 && brandStyle === 2 && mood === 1) return "storytelling";
+  if (tone === 1 && brandStyle === 2 && mood === 2) return "socialproof";
+  if (tone === 0 && brandStyle === 1 && mood === 2) return "comparison";
+  if (tone === 2 && brandStyle === 2 && mood === 3) return "benefitstack";
+  if (tone === 0 && brandStyle === 2 && mood === 3) return "problemfirst";
+  if (tone === 1 && brandStyle === 0 && mood === 0) return "premium";
+  if (tone === 2 && brandStyle === 1 && mood === 2) return "urgencysoft";
+  if (tone === 1 && brandStyle === 0 && mood === 2) return "educational";
+  if (tone === 0 && brandStyle === 3 && mood === 1) return "community";
+  if (tone === 0 && brandStyle === 0 && mood === 1) return "minimalist";
   if (tone === 0 && brandStyle === 0 && mood === 0) return "balanced";
   return "custom";
 }
 
-function normalizeStylePresetKey(value, fallback = "balanced") {
+function normalizeStylePresetKey(value, fallback = "expert") {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["balanced", "expert", "sales", "lifestyle", "custom"].includes(normalized)) {
+  if ([
+    "balanced",
+    "expert",
+    "sales",
+    "lifestyle",
+    "storytelling",
+    "socialproof",
+    "comparison",
+    "benefitstack",
+    "problemfirst",
+    "premium",
+    "urgencysoft",
+    "educational",
+    "community",
+    "minimalist",
+    "custom"
+  ].includes(normalized)) {
     return normalized;
   }
   return fallback;
+}
+
+function coerceStylePresetForPlan(value, isPro = false, fallback = "expert") {
+  const normalized = normalizeStylePresetKey(value, fallback);
+  if (isPro) return normalized;
+  return FREE_ALLOWED_STYLE_PRESETS.has(normalized) ? normalized : "expert";
+}
+
+function coerceStylePresetListForPlan(list = [], isPro = false) {
+  const source = Array.isArray(list) ? list : [];
+  return source.map((item) => coerceStylePresetForPlan(item, isPro, "expert"));
 }
 
 function isSameStylePresetList(left = [], right = []) {
@@ -60,10 +113,10 @@ function isSameStylePresetList(left = [], right = []) {
   return true;
 }
 
-function buildVariantStylePresetList(count = 1, seedPreset = "balanced", existing = []) {
+function buildVariantStylePresetList(count = 1, seedPreset = "expert", existing = []) {
   const size = Math.max(1, Math.min(5, Number(count) || 1));
-  const normalizedSeed = normalizeStylePresetKey(seedPreset, "balanced");
-  const firstStyle = MULTI_STYLE_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "balanced";
+  const normalizedSeed = normalizeStylePresetKey(seedPreset, "expert");
+  const firstStyle = MULTI_STYLE_SEQUENCE.includes(normalizedSeed) ? normalizedSeed : "expert";
   const rotation = [firstStyle, ...MULTI_STYLE_SEQUENCE.filter((item) => item !== firstStyle)];
   const next = [];
 
@@ -133,6 +186,52 @@ function buildRejectedUploadMessage(rejected = [], language = "vi") {
   return `${rejected.length} invalid image(s) were skipped.`;
 }
 
+function normalizeProductNameForCompare(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isSameProductName(left = "", right = "") {
+  return normalizeProductNameForCompare(left) === normalizeProductNameForCompare(right);
+}
+
+function toSuggestionHighlightsText(value = []) {
+  if (!Array.isArray(value)) return "";
+  return value
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .join("\n");
+}
+
+function toSuggestionAttributesText(value = []) {
+  if (!Array.isArray(value)) return "";
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      return String(item?.value || "").trim();
+    })
+    .filter(Boolean)
+    .slice(0, 10)
+    .join("\n");
+}
+
+function buildIndustryKeywordSeed({ productName = "", presetLabel = "" } = {}) {
+  const normalizedName = String(productName || "").trim();
+  if (normalizedName && !isUnknownGeneratedProductName(normalizedName)) {
+    const tokens = normalizedName
+      .replace(/[|,;:/\\]+/g, " ")
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    if (tokens.length) return tokens.join(" ");
+  }
+
+  const label = String(presetLabel || "").trim();
+  if (!label) return "";
+  return label;
+}
+
 function getOnboardingState() {
   if (typeof window === "undefined") return { seen: false, dismissed: false, quickstartUsed: false };
   try {
@@ -163,7 +262,7 @@ function saveOnboardingState(nextState) {
 }
 
 export function useProductWorkspace({ initialHistoryId, samplePresets, language = "vi" }) {
-  const { session, setSession } = useAuthBootstrap();
+  const { session, guestQuota, setSession } = useAuthBootstrap();
   const copy = getCopy(language);
   const [history, setHistory] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -175,6 +274,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   const [suggestion, setSuggestion] = useState(null);
   const [suggestionPulseToken, setSuggestionPulseToken] = useState(0);
   const [suggesting, setSuggesting] = useState(false);
+  const [lastAutoFilledProductName, setLastAutoFilledProductName] = useState("");
   const [form, setForm] = useState(() => {
     const base = createEmptyProductForm();
     const defaults = getMarketplaceDefaults(base.category, base.channel);
@@ -182,7 +282,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   });
   const [brandPreset, setBrandPreset] = useState("minimalist");
   const [variantCount, setVariantCountState] = useState(1);
-  const [variantStylePresets, setVariantStylePresets] = useState(["balanced"]);
+  const [variantStylePresets, setVariantStylePresets] = useState(["expert"]);
   const [industrySearchKeyword, setIndustrySearchKeyword] = useState("");
   const [categoryGroupFilter, setCategoryGroupFilter] = useState("fashionBeauty");
   const [onboardingState, setOnboardingState] = useState(() => getOnboardingState());
@@ -207,14 +307,14 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   function setVariantStylePresetAt(index, nextPreset) {
     const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
     const targetCount = isProPlan ? variantCount : 1;
-    const normalizedPreset = normalizeStylePresetKey(nextPreset, "balanced");
+    const normalizedPreset = coerceStylePresetForPlan(nextPreset, isProPlan, "balanced");
 
     setVariantStylePresets((prev) => {
       const inferred = normalizeStylePresetKey(inferStylePresetFromFields(form), "balanced");
-      const seed = normalizeStylePresetKey(prev?.[0], inferred);
+      const seed = coerceStylePresetForPlan(prev?.[0], isProPlan, inferred);
       const next = buildVariantStylePresetList(targetCount, seed, prev);
-      next[targetIndex] = normalizedPreset;
-      return next;
+      next[targetIndex] = coerceStylePresetForPlan(normalizedPreset, isProPlan, "balanced");
+      return coerceStylePresetListForPlan(next, isProPlan);
     });
 
     if (targetIndex === 0 && normalizedPreset !== "custom") {
@@ -289,14 +389,32 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     [favoriteIds, historyFavoriteIds]
   );
 
-  async function refreshUserData() {
-    const [sessionRes, historyRes, favoritesRes] = await Promise.all([
-      apiGet(routes.api.session),
-      apiGet(`${routes.api.history}?type=product_copy&limit=200`, { items: [] }),
-      apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
-    ]);
-    setSession(sessionRes.user || null);
-    setGenerateQuota(sessionRes?.user?.generateQuota || sessionRes?.guestQuota || null);
+  useEffect(() => {
+    setGenerateQuota(session?.generateQuota || guestQuota || null);
+  }, [session, guestQuota]);
+
+  async function refreshUserData(options = {}) {
+    const includeSession = Boolean(options?.includeSession);
+    let historyRes = null;
+    let favoritesRes = null;
+
+    if (includeSession) {
+      const [sessionRes, nextHistoryRes, nextFavoritesRes] = await Promise.all([
+        apiGet(`${routes.api.session}?ts=${Date.now()}`, { user: null, guestQuota: null }, { timeoutMs: 4500 }),
+        apiGet(`${routes.api.history}?type=product_copy&limit=200`, { items: [] }),
+        apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
+      ]);
+      setSession(sessionRes?.user || null);
+      setGenerateQuota(sessionRes?.user?.generateQuota || sessionRes?.guestQuota || null);
+      historyRes = nextHistoryRes;
+      favoritesRes = nextFavoritesRes;
+    } else {
+      [historyRes, favoritesRes] = await Promise.all([
+        apiGet(`${routes.api.history}?type=product_copy&limit=200`, { items: [] }),
+        apiGet(`${routes.api.favorites}?type=product_copy&limit=200`, { items: [] })
+      ]);
+    }
+
     setHistory(historyRes.items || []);
     setFavorites(favoritesRes?.items || []);
   }
@@ -316,6 +434,36 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     if (normalized === "lifestyle") {
       return { tone: 0, brandStyle: 1, mood: 1 };
     }
+    if (normalized === "storytelling") {
+      return { tone: 1, brandStyle: 2, mood: 1 };
+    }
+    if (normalized === "socialproof") {
+      return { tone: 1, brandStyle: 2, mood: 2 };
+    }
+    if (normalized === "comparison") {
+      return { tone: 0, brandStyle: 1, mood: 2 };
+    }
+    if (normalized === "benefitstack") {
+      return { tone: 2, brandStyle: 2, mood: 3 };
+    }
+    if (normalized === "problemfirst") {
+      return { tone: 0, brandStyle: 2, mood: 3 };
+    }
+    if (normalized === "premium") {
+      return { tone: 1, brandStyle: 0, mood: 0 };
+    }
+    if (normalized === "urgencysoft") {
+      return { tone: 2, brandStyle: 1, mood: 2 };
+    }
+    if (normalized === "educational") {
+      return { tone: 1, brandStyle: 0, mood: 2 };
+    }
+    if (normalized === "community") {
+      return { tone: 0, brandStyle: 3, mood: 1 };
+    }
+    if (normalized === "minimalist") {
+      return { tone: 0, brandStyle: 0, mood: 1 };
+    }
     if (normalized === "balanced") {
       return { tone: 0, brandStyle: 0, mood: 0 };
     }
@@ -332,6 +480,16 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     if (stylePreset === "expert") return language === "vi" ? "Chuyên gia" : "Expert";
     if (stylePreset === "sales") return language === "vi" ? "Chốt sale" : "Sales";
     if (stylePreset === "lifestyle") return language === "vi" ? "Lifestyle" : "Lifestyle";
+    if (stylePreset === "storytelling") return language === "vi" ? "Kể chuyện chân thật" : "Storytelling";
+    if (stylePreset === "socialproof") return language === "vi" ? "Chứng thực xã hội" : "Social proof";
+    if (stylePreset === "comparison") return language === "vi" ? "So sánh trước/sau" : "Before/after";
+    if (stylePreset === "benefitstack") return language === "vi" ? "Chuỗi lợi ích" : "Benefit stack";
+    if (stylePreset === "problemfirst") return language === "vi" ? "Nỗi đau trước" : "Problem-first";
+    if (stylePreset === "premium") return language === "vi" ? "Premium sang trọng" : "Premium";
+    if (stylePreset === "urgencysoft") return language === "vi" ? "Khẩn nhẹ" : "Soft urgency";
+    if (stylePreset === "educational") return language === "vi" ? "Giáo dục dễ hiểu" : "Educational";
+    if (stylePreset === "community") return language === "vi" ? "Cộng đồng tin cậy" : "Community";
+    if (stylePreset === "minimalist") return language === "vi" ? "Tối giản rõ ý" : "Minimalist";
     if (stylePreset === "balanced") return language === "vi" ? "Cân bằng" : "Balanced";
     return language === "vi" ? `Biến thể ${index + 1}` : `Variant ${index + 1}`;
   }
@@ -380,7 +538,11 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   }
 
   useEffect(() => {
-    refreshUserData();
+    refreshUserData({ includeSession: true });
+    const timer = setTimeout(() => {
+      refreshUserData({ includeSession: true }).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -399,15 +561,18 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   useEffect(() => {
     const targetCount = isProPlan ? variantCount : 1;
     if (targetCount === 1) {
-      const singlePreset = normalizeStylePresetKey(inferredStylePresetFromForm, "balanced");
+      const singlePreset = coerceStylePresetForPlan(inferredStylePresetFromForm, isProPlan, "balanced");
       if (!isSameStylePresetList(variantStylePresets, [singlePreset])) {
         setVariantStylePresets([singlePreset]);
       }
       return;
     }
 
-    const seedPreset = normalizeStylePresetKey(variantStylePresets?.[0], inferredStylePresetFromForm);
-    const normalized = buildVariantStylePresetList(targetCount, seedPreset, variantStylePresets);
+    const seedPreset = coerceStylePresetForPlan(variantStylePresets?.[0], isProPlan, inferredStylePresetFromForm);
+    const normalized = coerceStylePresetListForPlan(
+      buildVariantStylePresetList(targetCount, seedPreset, variantStylePresets),
+      isProPlan
+    );
     if (!isSameStylePresetList(normalized, variantStylePresets)) {
       setVariantStylePresets(normalized);
     }
@@ -447,9 +612,10 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     try {
       const stylePresetFromForm = resolveStylePresetFromForm();
       const stylePresetFromResult = String(result?.stylePreset || "").trim().toLowerCase();
-      const stylePresetForRequest = improved
+      const stylePresetForRequestRaw = improved
         ? (stylePresetFromResult || stylePresetFromForm)
         : stylePresetFromForm;
+      const stylePresetForRequest = coerceStylePresetForPlan(stylePresetForRequestRaw, isProPlan, "balanced");
       const styleFields = resolveStyleFieldsByPreset(stylePresetForRequest, form);
 
       const data = await apiPost(routes.api.generate, {
@@ -477,7 +643,12 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         stylePreset: stylePresetForRequest,
         variantStylePresets: improved
           ? [stylePresetForRequest]
-          : (isProPlan ? buildVariantStylePresetList(variantCount, stylePresetForRequest, variantStylePresets) : [stylePresetForRequest]),
+          : coerceStylePresetListForPlan(
+              isProPlan
+                ? buildVariantStylePresetList(variantCount, stylePresetForRequest, variantStylePresets)
+                : [stylePresetForRequest],
+              isProPlan
+            ),
         improved,
         previousResult: improved && result
           ? {
@@ -508,7 +679,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         setActiveHistoryId(data.historyId || null);
       }
 
-      await refreshUserData();
+      await refreshUserData({ includeSession: true });
       trackEvent("generate.success", {
         category: form.category,
         source: normalizedResult.source,
@@ -520,7 +691,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     } catch (error) {
       const raw = error.message || copy.messages.generateError;
       setMessage(localizeKnownMessage(raw, copy) || raw);
-      await refreshUserData();
+      await refreshUserData({ includeSession: true });
       trackEvent("generate.failed", { error: raw, category: form.category });
     } finally {
       setLoading(false);
@@ -530,7 +701,10 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   function applySample() {
     const preset = samplePresets[form.category] || samplePresets.fashion;
     setForm((prev) => ({ ...createEmptyProductForm(), ...preset, images: prev.images }));
-    setVariantStylePresets([normalizeStylePresetKey(inferStylePresetFromFields(preset), "balanced")]);
+    setLastAutoFilledProductName("");
+    setVariantStylePresets([
+      coerceStylePresetForPlan(normalizeStylePresetKey(inferStylePresetFromFields(preset), "balanced"), isProPlan, "balanced")
+    ]);
     const nextState = { ...onboardingState, quickstartUsed: true };
     setOnboardingState(nextState);
     saveOnboardingState(nextState);
@@ -555,9 +729,12 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     setSelectedVariant(0);
     setBrandPreset("minimalist");
     setVariantCountState(1);
-    setVariantStylePresets([normalizeStylePresetKey(inferStylePresetFromFields({ ...base, ...defaults }), "balanced")]);
+    setVariantStylePresets([
+      coerceStylePresetForPlan(normalizeStylePresetKey(inferStylePresetFromFields({ ...base, ...defaults }), "balanced"), isProPlan, "balanced")
+    ]);
     setCategoryGroupFilter("fashionBeauty");
     setMessage("");
+    setLastAutoFilledProductName("");
     setActiveHistoryId(null);
     try { window.localStorage.removeItem(DRAFT_KEY); } catch {}
   }
@@ -608,6 +785,9 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   }
 
   function handleFieldChange(key, value) {
+    if (key === "productName") {
+      setLastAutoFilledProductName("");
+    }
     if (key === "industryPreset") {
       const preset = industryPresets.find((item) => item.value === value) || null;
       setForm((prev) => applyIndustryPresetToForm(prev, preset || { value }));
@@ -643,10 +823,12 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       if (["tone", "brandStyle", "mood"].includes(key)) {
         const inferred = normalizeStylePresetKey(inferStylePresetFromFields(next), "balanced");
         setVariantStylePresets((prevStyles) => {
-          if (!Array.isArray(prevStyles) || !prevStyles.length) return [inferred];
+          if (!Array.isArray(prevStyles) || !prevStyles.length) {
+            return [coerceStylePresetForPlan(inferred, isProPlan, "balanced")];
+          }
           const updated = [...prevStyles];
-          updated[0] = inferred;
-          return updated;
+          updated[0] = coerceStylePresetForPlan(inferred, isProPlan, "balanced");
+          return coerceStylePresetListForPlan(updated, isProPlan);
         });
       }
       return next;
@@ -667,10 +849,11 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     setSelectedVariant(nextResult?.selectedVariant ?? 0);
     setActiveHistoryId(item.id || null);
     setForm(restoreProductFormFromHistoryItem(item));
+    setLastAutoFilledProductName("");
     const stylesFromResult = Array.isArray(item?.result?.variants) && item.result.variants.length
       ? item.result.variants.map((variant) => normalizeStylePresetKey(variant?.stylePreset, "balanced"))
       : [normalizeStylePresetKey(item?.result?.stylePreset || inferStylePresetFromFields(item?.form || {}), "balanced")];
-    setVariantStylePresets(stylesFromResult);
+    setVariantStylePresets(coerceStylePresetListForPlan(stylesFromResult, isProPlan));
 
     const variantGroupId = String(item?.form?.variantGroupId || "").trim();
     if (variantGroupId) {
@@ -697,7 +880,20 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     const rejected = Array.isArray(uploadResult?.rejected) ? uploadResult.rejected : [];
     const nextImages = [...currentImages, ...newImages].slice(0, MAX_IMAGE_COUNT);
 
-    setForm((prev) => ({ ...prev, images: nextImages }));
+    const shouldResetAutoProductName = Boolean(
+      lastAutoFilledProductName
+      && isSameProductName(form.productName, lastAutoFilledProductName)
+    );
+    const nextProductNameForSuggest = shouldResetAutoProductName ? "" : form.productName;
+
+    setForm((prev) => ({
+      ...prev,
+      images: nextImages,
+      productName: shouldResetAutoProductName ? "" : prev.productName
+    }));
+    if (shouldResetAutoProductName) {
+      setLastAutoFilledProductName("");
+    }
     setSuggestion(null);
     trackEvent("image.upload", { count: nextImages.length, added: newImages.length });
 
@@ -715,7 +911,9 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     }
 
     if (nextImages.length) {
-      await suggestFromImagesInternal(nextImages, "auto");
+      await suggestFromImagesInternal(nextImages, "auto", {
+        productNameOverride: nextProductNameForSuggest
+      });
     }
 
     if (event?.target) {
@@ -724,7 +922,23 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
   }
 
   function removeImage(imageId) {
-    setForm((prev) => ({ ...prev, images: prev.images.filter((image) => image.id !== imageId) }));
+    setForm((prev) => {
+      const nextImages = prev.images.filter((image) => image.id !== imageId);
+      const shouldResetAutoProductName = Boolean(
+        lastAutoFilledProductName
+        && isSameProductName(prev.productName, lastAutoFilledProductName)
+      );
+      return {
+        ...prev,
+        images: nextImages,
+        productName: shouldResetAutoProductName ? "" : prev.productName
+      };
+    });
+    if (lastAutoFilledProductName && isSameProductName(form.productName, lastAutoFilledProductName)) {
+      setLastAutoFilledProductName("");
+    }
+    setSuggestion(null);
+    setMessage("");
   }
 
   async function copyResult() {
@@ -747,10 +961,10 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         if (historyItem) setFavorites((prev) => [historyItem, ...prev]);
       }
       await apiPost(routes.api.toggleFavorite, { historyId });
-      await refreshUserData();
+      await refreshUserData({ includeSession: false });
       trackEvent("favorite.toggle", { historyId, nextState: !exists });
     } catch (error) {
-      await refreshUserData();
+      await refreshUserData({ includeSession: false });
       const raw = error?.message || copy.messages.genericError;
       setMessage(localizeKnownMessage(raw, copy) || raw);
     }
@@ -787,7 +1001,7 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
     }
 
     openHistoryItem(updatedItem);
-    await refreshUserData();
+    await refreshUserData({ includeSession: false });
     trackEvent("output.save", {
       page: "scriptProductInfo",
       historyId: activeHistoryId,
@@ -797,24 +1011,30 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
 
   async function deleteHistory(historyId) {
     await apiPost(routes.api.deleteHistory, { historyId });
-    await refreshUserData();
+    await refreshUserData({ includeSession: false });
     trackEvent("history.delete", { historyId });
   }
 
-  async function suggestFromImagesInternal(imageSet, mode = "manual") {
+  async function suggestFromImagesInternal(imageSet, mode = "manual", options = {}) {
     const images = Array.isArray(imageSet) ? imageSet : [];
     if (!images.length) return;
+    const requestProductName = typeof options?.productNameOverride === "string"
+      ? options.productNameOverride
+      : form.productName;
     setSuggesting(true);
     try {
       const data = await apiPost(routes.api.suggestFromImages, {
         images,
-        productName: form.productName,
-        lang: toAiLang(language)
+        productName: requestProductName,
+        lang: toAiLang(language),
+        mode: mode === "manual" ? "manual" : "auto"
       });
 
       const suggested = data.suggestion || null;
       setSuggestion(suggested);
       if (!suggested) return;
+
+      const analysisState = String(suggested.analysisState || "").toLowerCase();
 
       const noteText = Array.isArray(suggested.notes) ? suggested.notes.join(" ") : "";
       const normalizedGeneratedName = String(suggested.generatedProductName || "").trim();
@@ -822,11 +1042,11 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
 
       const suggestedCategory = normalizeSuggestedCategory(suggested.category || "");
 
-      const strictNeedVisionName = shouldRequireVisionName(form.productName);
+      const strictNeedVisionName = shouldRequireVisionName(requestProductName);
       const shouldUseGeneratedName = Boolean(normalizedGeneratedName && !noNameDetected);
       const provisionalNameForInference = shouldUseGeneratedName
         ? normalizedGeneratedName
-        : form.productName;
+        : requestProductName;
 
       const inferredCategory = inferCategoryFromProductName(provisionalNameForInference);
 
@@ -852,27 +1072,16 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       const suggestedGroup = getCategoryGroupValue(resolvedCategory);
       const canApplySuggestedCategory = getCategoryValuesByGroup(suggestedGroup).includes(resolvedCategory);
 
-      const shouldUseCategoryFallbackName = Boolean(
-        strictNeedVisionName
-        && !shouldUseGeneratedName
-        && canApplySuggestedCategory
-        && resolvedCategory !== "other"
-      );
-
-      const fallbackProductName = shouldUseCategoryFallbackName
-        ? buildCategoryFallbackProductName(resolvedCategory, language)
-        : "";
-
       const nextProductName = shouldUseGeneratedName
         ? normalizedGeneratedName
-        : (fallbackProductName || null);
+        : null;
       const nameRequiredButMissing = strictNeedVisionName && !nextProductName;
 
       const resolvedIndustryPreset = canApplySuggestedCategory
         ? resolveSuggestedIndustryPresetValue({
             category: resolvedCategory,
             suggestion: suggested,
-            productName: nextProductName || form.productName,
+            productName: nextProductName || requestProductName,
             currentPreset: form.industryPreset,
             categoryWillChange: resolvedCategory !== form.category
           })
@@ -882,42 +1091,72 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         ? resolveSuggestedSubcategoryIndex({
             category: resolvedCategory,
             suggestion: suggested,
-            productName: nextProductName || form.productName,
+            productName: nextProductName || requestProductName,
             currentSubcategory: form.subcategory,
             categoryWillChange: resolvedCategory !== form.category,
             industryPreset: resolvedIndustryPreset
           })
         : form.subcategory;
 
+      const suggestedHighlightsText = toSuggestionHighlightsText(suggested.highlights);
+      const suggestedAttributesText = toSuggestionAttributesText(suggested.attributes);
+
       if (canApplySuggestedCategory && suggestedGroup !== categoryGroupFilter) {
         setCategoryGroupFilter(suggestedGroup);
       }
 
-      const shouldUseNoDataMode = /chua du du lieu|khong du du lieu|uploaded image does not contain enough data|khong the phan tich/i.test(noteText);
+      const shouldUseNoDataMode = analysisState === "no_data"
+        || /chua du du lieu|khong du du lieu|uploaded image does not contain enough data|khong the phan tich/i.test(noteText);
 
       if (shouldUseNoDataMode) {
-        setForm((prev) => ({
-          ...prev,
-          productName: nextProductName || prev.productName,
-          category: canApplySuggestedCategory ? resolvedCategory : prev.category,
-          subcategory: canApplySuggestedCategory
+        setForm((prev) => {
+          const nextCategory = canApplySuggestedCategory ? resolvedCategory : prev.category;
+          const nextSubcategory = canApplySuggestedCategory
             ? (Number.isFinite(Number(resolvedSubcategory)) ? Number(resolvedSubcategory) : prev.subcategory)
-            : prev.subcategory,
-          industryPreset: canApplySuggestedCategory
+            : prev.subcategory;
+          const nextIndustryPreset = canApplySuggestedCategory
             ? (resolvedIndustryPreset || prev.industryPreset)
-            : prev.industryPreset
-        }));
+            : prev.industryPreset;
+
+          const presetPool = getProductIndustryPresets(nextCategory);
+          const selectedPreset = presetPool.find((item) => item.value === nextIndustryPreset) || presetPool[0] || null;
+
+          const baseNext = {
+            ...prev,
+            productName: nextProductName || prev.productName,
+            category: nextCategory,
+            subcategory: nextSubcategory,
+            industryPreset: nextIndustryPreset
+          };
+
+          const enriched = selectedPreset ? applyIndustryPresetToForm(baseNext, selectedPreset) : baseNext;
+
+          return {
+            ...enriched,
+            highlights: String(enriched.highlights || "").trim() || prev.highlights,
+            attributes: String(enriched.attributes || "").trim() || prev.attributes
+          };
+        });
         setSuggestionPulseToken(Date.now());
+        if (nextProductName) {
+          setLastAutoFilledProductName(nextProductName);
+        }
+
+        const noDataPresetPool = getProductIndustryPresets(canApplySuggestedCategory ? resolvedCategory : form.category);
+        const noDataPreset = noDataPresetPool.find((item) => item.value === resolvedIndustryPreset) || noDataPresetPool[0] || null;
+        const noDataKeyword = buildIndustryKeywordSeed({
+          productName: nextProductName || requestProductName,
+          presetLabel: noDataPreset?.label || ""
+        });
+        if (noDataKeyword) {
+          setIndustrySearchKeyword(noDataKeyword);
+        }
 
         if (nameRequiredButMissing) {
           setMessage(language === "vi"
             ? "Chưa nhận dạng được tên sản phẩm từ ảnh. Vui lòng dùng ảnh rõ sản phẩm hoặc nhập tên thủ công."
             : "Unable to identify product name from image yet. Please upload a clearer image or enter product name manually.");
           trackEvent("image.suggest.name_not_detected", { mode, category: canApplySuggestedCategory ? resolvedCategory : form.category });
-        } else if (shouldUseCategoryFallbackName) {
-          setMessage(language === "vi"
-            ? "AI chưa nhận dạng chính xác tên sản phẩm, đã điền tên gợi ý theo ngành hàng."
-            : "AI could not detect an exact product name, so a category-based fallback name was applied.");
         } else {
           setMessage(noteText);
         }
@@ -926,33 +1165,67 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           mode,
           category: canApplySuggestedCategory ? resolvedCategory : form.category,
           generatedProductName: nextProductName,
-          fallbackNameApplied: shouldUseCategoryFallbackName
+          fallbackNameApplied: false
         });
         return;
       }
 
-      setForm((prev) => ({
-        ...prev,
-        productName: nextProductName || prev.productName,
-        category: canApplySuggestedCategory ? resolvedCategory : prev.category,
-        subcategory: canApplySuggestedCategory
+      setForm((prev) => {
+        const nextCategory = canApplySuggestedCategory ? resolvedCategory : prev.category;
+        const nextSubcategory = canApplySuggestedCategory
           ? (Number.isFinite(Number(resolvedSubcategory)) ? Number(resolvedSubcategory) : prev.subcategory)
-          : prev.subcategory,
-        industryPreset: canApplySuggestedCategory
+          : prev.subcategory;
+        const nextIndustryPreset = canApplySuggestedCategory
           ? (resolvedIndustryPreset || prev.industryPreset)
-          : prev.industryPreset,
-        tone: Number.isFinite(Number(suggested.tone)) ? Number(suggested.tone) : prev.tone,
-        channel: Number.isFinite(Number(suggested.channel)) ? Number(suggested.channel) : prev.channel,
-        mood: Number.isFinite(Number(suggested.mood)) ? Number(suggested.mood) : prev.mood,
-        brandStyle: Number.isFinite(Number(suggested.brandStyle)) ? Number(suggested.brandStyle) : prev.brandStyle,
-        targetCustomer: suggested.targetCustomer || prev.targetCustomer,
-        shortDescription: suggested.shortDescription || prev.shortDescription,
-        highlights: suggested.highlights?.length ? suggested.highlights.join("\n") : prev.highlights,
-        attributes: suggested.attributes?.length
-          ? suggested.attributes.map((item) => item.value).join("\n")
-          : prev.attributes
-      }));
+          : prev.industryPreset;
+
+        const presetPool = getProductIndustryPresets(nextCategory);
+        const selectedPreset = presetPool.find((item) => item.value === nextIndustryPreset) || presetPool[0] || null;
+
+        const toNumberOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+
+        return {
+          ...prev,
+          productName: nextProductName || prev.productName,
+          category: nextCategory,
+          subcategory: nextSubcategory,
+          industryPreset: nextIndustryPreset,
+          tone: toNumberOr(suggested.tone, toNumberOr(selectedPreset?.tone, prev.tone)),
+          channel: toNumberOr(suggested.channel, toNumberOr(selectedPreset?.channel, prev.channel)),
+          mood: toNumberOr(suggested.mood, toNumberOr(selectedPreset?.mood, prev.mood)),
+          brandStyle: toNumberOr(suggested.brandStyle, toNumberOr(selectedPreset?.brandStyle, prev.brandStyle)),
+          targetCustomer: String(suggested.targetCustomer || selectedPreset?.targetCustomer || prev.targetCustomer || "").trim(),
+          shortDescription: String(suggested.shortDescription || selectedPreset?.shortDescription || prev.shortDescription || "").trim(),
+          highlights: suggestedHighlightsText || String(selectedPreset?.highlights || prev.highlights || "").trim(),
+          attributes: suggestedAttributesText || String(selectedPreset?.attributes || prev.attributes || "").trim(),
+          priceSegment: String(suggested.priceSegment || selectedPreset?.priceSegment || prev.priceSegment || "").trim(),
+          usage: String(suggested.usage || selectedPreset?.usage || prev.usage || "").trim(),
+          skinConcern: String(suggested.skinConcern || selectedPreset?.skinConcern || prev.skinConcern || "").trim(),
+          routineStep: String(suggested.routineStep || selectedPreset?.routineStep || prev.routineStep || "").trim(),
+          dimensions: String(suggested.dimensions || selectedPreset?.dimensions || prev.dimensions || "").trim(),
+          warranty: String(suggested.warranty || selectedPreset?.warranty || prev.warranty || "").trim(),
+          usageSpace: String(suggested.usageSpace || selectedPreset?.usageSpace || prev.usageSpace || "").trim(),
+          specs: String(suggested.specs || selectedPreset?.specs || prev.specs || "").trim(),
+          compatibility: String(suggested.compatibility || selectedPreset?.compatibility || prev.compatibility || "").trim(),
+          sizeGuide: String(suggested.sizeGuide || selectedPreset?.sizeGuide || prev.sizeGuide || "").trim(),
+          careGuide: String(suggested.careGuide || selectedPreset?.careGuide || prev.careGuide || "").trim(),
+          exchangePolicy: String(suggested.exchangePolicy || selectedPreset?.exchangePolicy || prev.exchangePolicy || "").trim()
+        };
+      });
       setSuggestionPulseToken(Date.now());
+      if (nextProductName) {
+        setLastAutoFilledProductName(nextProductName);
+      }
+
+      const successPresetPool = getProductIndustryPresets(canApplySuggestedCategory ? resolvedCategory : form.category);
+      const successPreset = successPresetPool.find((item) => item.value === resolvedIndustryPreset) || successPresetPool[0] || null;
+      const successKeyword = buildIndustryKeywordSeed({
+        productName: nextProductName || requestProductName,
+        presetLabel: successPreset?.label || ""
+      });
+      if (successKeyword) {
+        setIndustrySearchKeyword(successKeyword);
+      }
 
       trackEvent("image.suggest.success", {
         mode,
@@ -969,10 +1242,6 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
           ? "Chưa nhận dạng được tên sản phẩm từ ảnh. Vui lòng dùng ảnh rõ sản phẩm hoặc nhập tên thủ công."
           : "Unable to identify product name from image yet. Please upload a clearer image or enter product name manually.");
         trackEvent("image.suggest.name_not_detected", { mode, category: canApplySuggestedCategory ? resolvedCategory : form.category });
-      } else if (shouldUseCategoryFallbackName) {
-        setMessage(language === "vi"
-          ? "AI chưa nhận dạng chính xác tên sản phẩm, đã điền tên gợi ý theo ngành hàng."
-          : "AI could not detect an exact product name, so a category-based fallback name was applied.");
       } else if (shouldWarnMismatch) {
         setMessage(language === "vi"
           ? "Ảnh và tên sản phẩm đang mâu thuẫn, vui lòng xác nhận lại trước khi áp dụng template."
@@ -992,13 +1261,13 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
       const rawErrorMessage = String(error?.message || "");
       const nextMessage =
         /401|unauthorized|invalid api key|expired/i.test(rawErrorMessage)
-          ? (language === "vi" ? "AI key không hợp lệ hoặc đã hết hạn." : "AI key is invalid or expired.")
+          ? (language === "vi" ? "Khóa dịch vụ không hợp lệ hoặc đã hết hạn." : "Service key is invalid or expired.")
           : /403|forbidden/i.test(rawErrorMessage)
-            ? (language === "vi" ? "AI provider từ chối truy cập (403)." : "AI provider rejected access (403).")
+            ? (language === "vi" ? "Dịch vụ từ chối truy cập (403)." : "Service rejected access (403).")
             : /429|rate|too many/i.test(rawErrorMessage)
-              ? (language === "vi" ? "AI provider đang quá tải (429), vui lòng thử lại sau ít phút." : "AI provider rate-limited (429), please retry shortly.")
+              ? (language === "vi" ? "Dịch vụ đang quá tải (429), vui lòng thử lại sau ít phút." : "Service rate-limited (429), please retry shortly.")
               : /5\d\d|server/i.test(rawErrorMessage)
-                ? (language === "vi" ? "AI provider đang lỗi máy chủ, vui lòng thử lại sau." : "AI provider server error, please retry later.")
+                ? (language === "vi" ? "Dịch vụ đang lỗi máy chủ, vui lòng thử lại sau." : "Service server error, please retry later.")
                 : (rawErrorMessage || fallbackNote);
 
       setSuggestion((prev) => ({

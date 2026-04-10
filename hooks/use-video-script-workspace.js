@@ -308,7 +308,7 @@ function getDefaultVideoForm(category = "fashion") {
   return {
     category,
     channel: defaults.channel,
-    openingStyle: Math.max(0, Math.min(4, Number(defaults.tone) || 0)),
+    openingStyle: 4,
     moodVi,
     moodEn
   };
@@ -653,7 +653,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
   const [generateQuota, setGenerateQuota] = useState(null);
   const [variantCount, setVariantCount] = useState(1);
   const [variantOpeningStyles, setVariantOpeningStyles] = useState([0]);
-  const [variantStylePresets, setVariantStylePresets] = useState(["balanced"]);
+  const [variantStylePresets, setVariantStylePresets] = useState(["expert"]);
 
   const isProPlan = String(session?.plan || "free") === "pro";
 

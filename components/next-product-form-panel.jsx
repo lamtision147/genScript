@@ -15,11 +15,7 @@ function buildGroupedStyleOptions(baseOptions = [], isPro = false, language = "v
   const list = Array.isArray(baseOptions) ? baseOptions : [];
   const freeOptions = list.filter((option) => isFreeAllowedStylePreset(option.value));
   const proOptions = list
-    .filter((option) => !isFreeAllowedStylePreset(option.value))
-    .map((option) => ({
-      ...option,
-      label: `${option.label} (Pro)`
-    }));
+    .filter((option) => !isFreeAllowedStylePreset(option.value));
 
   if (isPro) {
     return [
@@ -181,7 +177,7 @@ export default function NextProductFormPanel({
   const variantStylePresetOptions = stylePresetOptions.filter((option) => option.value !== "custom");
   const resolvedVariantStylePresets = (() => {
     const targetCount = isPro ? normalizedVariantCount : 1;
-    const inferred = normalizeStylePresetValue(stylePresetValue, "balanced");
+    const inferred = normalizeStylePresetValue(stylePresetValue, "expert");
     const sequence = [
       "balanced",
       "expert",
@@ -198,7 +194,7 @@ export default function NextProductFormPanel({
       "community",
       "minimalist"
     ];
-    const seed = sequence.includes(inferred) ? inferred : "balanced";
+    const seed = sequence.includes(inferred) ? inferred : "expert";
     const rotation = [seed, ...sequence.filter((item) => item !== seed)];
     const next = [];
 
@@ -209,7 +205,7 @@ export default function NextProductFormPanel({
           next.push(raw);
           continue;
         }
-        next.push(rotation[index % rotation.length] || "balanced");
+        next.push(rotation[index % rotation.length] || "expert");
         continue;
       }
       next.push(raw || inferred);
