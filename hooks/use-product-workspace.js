@@ -1064,6 +1064,8 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         resolvedCategory = "food";
       }
 
+      const shouldPreferSignalTemplate = shouldForceFoodForWine;
+
       const potentialMismatch = Boolean(
         inferredCategory
         && suggestedCategory
@@ -1102,7 +1104,8 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
             suggestion: suggested,
             productName: nextProductName || requestProductName,
             currentPreset: form.industryPreset,
-            categoryWillChange: resolvedCategory !== form.category
+            categoryWillChange: resolvedCategory !== form.category,
+            preferSignal: shouldPreferSignalTemplate
           })
         : form.industryPreset;
 
