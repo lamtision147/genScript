@@ -1058,6 +1058,12 @@ export function useProductWorkspace({ initialHistoryId, samplePresets, language 
         resolvedCategory = inferredCategory;
       }
 
+      const viNameSignal = normalizeTextForCategoryCheck(provisionalNameForInference);
+      const shouldForceFoodForWine = /ruou|vang\b|wine|beer|bia|whisky|whiskey|vodka|champagne|sparkling|soju|sake|cocktail/.test(viNameSignal);
+      if (shouldForceFoodForWine) {
+        resolvedCategory = "food";
+      }
+
       const potentialMismatch = Boolean(
         inferredCategory
         && suggestedCategory
