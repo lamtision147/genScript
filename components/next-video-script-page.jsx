@@ -162,6 +162,9 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const [showProVariantPopup, setShowProVariantPopup] = useState(false);
   const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
   const [portalReady, setPortalReady] = useState(false);
+  const [switchingVariant, setSwitchingVariant] = useState(false);
+  const [pendingVariantIndex, setPendingVariantIndex] = useState(-1);
+  const variantSwitchTimeoutRef = useRef(null);
   const outputPanelRef = useRef(null);
   const categoryGroupOptions = getCategoryGroupOptions(language);
   const filteredIndustryPresetOptions = useMemo(() => {
@@ -319,6 +322,14 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (variantSwitchTimeoutRef.current) {
+        clearTimeout(variantSwitchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!showProVariantPopup) return undefined;
     const handleEsc = (event) => {
       if (event.key === "Escape") closeProVariantPopup();
@@ -374,6 +385,41 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
       return;
     }
     actions.setVariantStylePresetAt?.(index, nextValue);
+  }
+
+  function handlePickOutputVariant(index) {
+    const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+    if (targetIndex === selectedVariantIndex) return;
+
+    if (variantSwitchTimeoutRef.current) {
+      clearTimeout(variantSwitchTimeoutRef.current);
+    }
+
+    setPendingVariantIndex(targetIndex);
+    setSwitchingVariant(true);
+
+    const run = () => {
+      actions.selectVariant?.(targetIndex);
+      if (typeof window !== "undefined" && window.requestAnimationFrame) {
+        window.requestAnimationFrame(() => {
+          variantSwitchTimeoutRef.current = setTimeout(() => {
+            setSwitchingVariant(false);
+            setPendingVariantIndex(-1);
+          }, 140);
+        });
+      } else {
+        variantSwitchTimeoutRef.current = setTimeout(() => {
+          setSwitchingVariant(false);
+          setPendingVariantIndex(-1);
+        }, 140);
+      }
+    };
+
+    if (typeof window !== "undefined" && window.requestAnimationFrame) {
+      window.requestAnimationFrame(run);
+    } else {
+      setTimeout(run, 0);
+    }
   }
 
   function renderProUpsellPopup() {
@@ -861,7 +907,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
           </div>
 
           <NextOutputCard
-            loading={loading}
+            loading={loading || switchingVariant}
             result={activeOutputVariant}
             message={message}
             session={session}
@@ -872,29 +918,12 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
             onCopy={handleCopy}
             onDownload={handleDownload}
             editable
-            savingEdited={savingEdited}
+            savingEdited={savingEdited || switchingVariant}
             selectedVariant={selectedVariantIndex}
             variants={outputVariants}
             onPickVariant={(index) => {
-              const next = outputVariants[index];
-              if (!next) return;
-              const nextVideoResult = toVideoResultFromOutputVariant(next);
-              if (!nextVideoResult) return;
-              const nextVariants = outputVariants
-                .map((variantItem) => toVideoResultFromOutputVariant(variantItem))
-                .filter(Boolean);
-              actions.openHistoryItem?.({
-                id: next?.historyId || activeHistoryId,
-                form: {
-                  ...form,
-                  variantGroupId: next?.variantGroupId || result?.variantGroupId || ""
-                },
-                result: {
-                  ...nextVideoResult,
-                  variants: nextVariants.length ? nextVariants : [nextVideoResult],
-                  selectedVariant: index
-                }
-              });
+              if (switchingVariant && pendingVariantIndex === Number(index)) return;
+              handlePickOutputVariant(index);
             }}
             onSaveEditedResult={async (nextProductLike) => {
               const nextVideoResult = toProductLikeForSave({

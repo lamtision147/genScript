@@ -1045,6 +1045,45 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
     });
   }
 
+  function selectVariant(index = 0) {
+    if (!result) return;
+
+    const variants = Array.isArray(result?.variants) && result.variants.length
+      ? result.variants
+      : [result];
+    if (!variants.length) return;
+
+    const targetIndex = Math.max(0, Math.min(variants.length - 1, Math.floor(Number(index) || 0)));
+    const normalizedVariants = variants.map((variant, variantIndex) => {
+      const styleKey = coerceOpeningStyleForPlan(variant?.openingStyle, isProPlan, variantIndex % 5);
+      const stylePreset = coerceVideoStylePresetForPlan(
+        normalizeVideoStylePreset(variant?.stylePreset || variant?.variantStylePreset || "", videoOpeningStyleToPreset(styleKey)),
+        isProPlan,
+        videoOpeningStyleToPreset(styleKey)
+      );
+      const styleLabel = String(variant?.variantStyleLabel || variant?.styleLabel || getVideoStylePresetLabel(stylePreset, language)).trim();
+      return {
+        ...variant,
+        openingStyle: styleKey,
+        stylePreset,
+        variantStylePreset: stylePreset,
+        variantStyleLabel: styleLabel,
+        styleLabel
+      };
+    });
+
+    const nextVariant = normalizedVariants[targetIndex] || normalizedVariants[0];
+    if (!nextVariant) return;
+
+    setResult({
+      ...nextVariant,
+      variants: normalizedVariants,
+      selectedVariant: targetIndex,
+      variantGroupId: nextVariant?.variantGroupId || result?.variantGroupId || ""
+    });
+    setActiveHistoryId(nextVariant?.historyId || result?.historyId || activeHistoryId || null);
+  }
+
   function setCategoryGroup(nextGroup) {
     const allowed = getCategoryValuesByGroup(nextGroup);
     const nextCategory = allowed.includes(form.category) ? form.category : allowed[0] || "other";
@@ -1671,6 +1710,7 @@ export function useVideoScriptWorkspace(language = "vi", { initialHistoryId = ""
       setVariantCount: setVariantCountValue,
       setVariantOpeningStyleAt,
       setVariantStylePresetAt,
+      selectVariant,
       setCategoryGroupFilter: setCategoryGroup,
       handleImageSelect,
       removeImage,
