@@ -104,6 +104,14 @@ async function clickWithFocusZoom(page, locator) {
   await page.mouse.up();
 }
 
+async function smoothWheel(page, deltaY = 600, steps = 12, totalMs = 520) {
+  const perStep = deltaY / steps;
+  for (let i = 0; i < steps; i += 1) {
+    await page.mouse.wheel(0, perStep);
+    await delay(Math.max(10, Math.floor(totalMs / steps)));
+  }
+}
+
 async function recordGuideVideo() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await fs.mkdir(TMP_DIR, { recursive: true });
@@ -141,7 +149,7 @@ async function recordGuideVideo() {
   });
 
   await page.route("**/api/generate-video-script**", async (route) => {
-    await delay(500);
+    await delay(360);
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -159,22 +167,22 @@ async function recordGuideVideo() {
   const startedAt = Date.now();
 
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 60000 });
-  await delay(350);
+  await delay(140);
 
   await page.addStyleTag({
     content: `
-      html { zoom: 1.24; }
+      html { zoom: 1.12; }
       body { scroll-behavior: auto !important; }
       .analysis-progress-card { transform: scale(1.02); transform-origin: center top; }
       .primary-button { box-shadow: 0 0 0 2px rgba(239, 141, 44, 0.2); }
     `
   });
-  await delay(260);
+  await delay(100);
 
   const langSelect = page.locator("#header-language");
   if (await langSelect.count()) {
     await langSelect.selectOption("vi");
-    await delay(500);
+    await delay(140);
   }
 
   const uploadLabel = page.getByText(/Kéo ảnh vào đây hoặc bấm để chọn/i).first();
@@ -188,36 +196,45 @@ async function recordGuideVideo() {
     mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2m8wAAAABJRU5ErkJggg==", "base64")
   });
-  await delay(900);
+  await delay(420);
 
   const productNameField = page.getByLabel("Tên sản phẩm");
   await clickWithFocusZoom(page, productNameField);
-  await delay(260);
+  await delay(100);
 
   await page.getByLabel("Mức giá mục tiêu").fill("199k");
-  await delay(140);
+  await delay(70);
 
   await page.getByLabel("Vấn đề chính của khách hàng").fill("Tai nghe hay nóng tai, mic rè khi call game");
-  await delay(140);
+  await delay(70);
   await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Đệm tai êm\nMic rõ\nKhung chắc");
-  await delay(260);
+  await delay(90);
 
   const styleSelect = page.getByLabel("Phong cách nội dung").first();
   if (await styleSelect.count()) {
     await clickWithFocusZoom(page, styleSelect);
     await styleSelect.selectOption("expert");
-    await delay(180);
+    await delay(90);
   }
 
   const variantSelect = page.getByLabel("Số bản nội dung").first();
   if (await variantSelect.count()) {
     await variantSelect.selectOption("2");
-    await delay(220);
+    await delay(90);
   }
 
   const generateBtn = page.getByRole("button", { name: "Tạo kịch bản video" });
   await clickWithFocusZoom(page, generateBtn);
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(900);
+
+  await smoothWheel(page, 500, 6, 220);
+  await page.waitForTimeout(120);
+
+  const outputCard = page.locator(".content-card").first();
+  if (await outputCard.count()) {
+    await clickWithFocusZoom(page, outputCard);
+    await page.waitForTimeout(160);
+  }
 
   const elapsedMs = Date.now() - startedAt;
   const targetMs = GUIDE_DURATION_SECONDS * 1000;
