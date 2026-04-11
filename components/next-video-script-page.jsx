@@ -526,7 +526,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
           <div className="guide-video-wrap">
             <video
               className="guide-video"
-              src="/guide/video-script-quickstart-10s.mp4"
+              src="/guide/video-script-quickstart-10s.webm"
               controls
               autoPlay
               muted
