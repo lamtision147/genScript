@@ -192,6 +192,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   const [templateKeyword, setTemplateKeyword] = useState("");
   const [showProVariantPopup, setShowProVariantPopup] = useState(false);
   const [requestedProVariantCount, setRequestedProVariantCount] = useState(2);
+  const [showGuidePopup, setShowGuidePopup] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
   const [switchingVariant, setSwitchingVariant] = useState(false);
   const [pendingVariantIndex, setPendingVariantIndex] = useState(-1);
@@ -344,6 +345,16 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
   }, []);
 
   useEffect(() => {
+    if (!portalReady || typeof window === "undefined") return;
+    const key = "seller-studio-video-guide-v1";
+    const seen = window.localStorage.getItem(key) === "1";
+    if (!seen) {
+      setShowGuidePopup(true);
+      window.localStorage.setItem(key, "1");
+    }
+  }, [portalReady]);
+
+  useEffect(() => {
     return () => {
       if (variantSwitchTimeoutRef.current) {
         clearTimeout(variantSwitchTimeoutRef.current);
@@ -485,6 +496,48 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
           <div className="pro-upsell-actions">
             <a className="primary-button pro-upsell-cta" href={routes.upgrade}>{isVi ? "Nâng cấp Pro ngay" : "Upgrade to Pro now"}</a>
             <button type="button" className="ghost-button" onClick={closeProVariantPopup}>{isVi ? "Tiếp tục với 1 bản" : "Continue with 1 variant"}</button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  function closeGuidePopup() {
+    setShowGuidePopup(false);
+  }
+
+  function renderGuidePopup() {
+    if (!showGuidePopup || !portalReady) return null;
+    return createPortal(
+      <div className="guide-overlay" role="presentation" onClick={(event) => {
+        if (event.target === event.currentTarget) closeGuidePopup();
+      }}>
+        <div className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="video-guide-title">
+          <button type="button" className="pro-upsell-close" onClick={closeGuidePopup} aria-label={isVi ? "Đóng" : "Close"}>×</button>
+          <h3 id="video-guide-title" className="pro-upsell-title">
+            {isVi ? "Hướng dẫn nhanh 10 giây" : "10-second quick guide"}
+          </h3>
+          <p className="pro-upsell-subtitle">
+            {isVi
+              ? "Xem nhanh full luồng: upload ảnh -> chỉnh brief -> tạo script -> chọn bản tốt nhất."
+              : "Quick flow: upload image -> refine brief -> generate script -> pick best variant."}
+          </p>
+          <div className="guide-video-wrap">
+            <video
+              className="guide-video"
+              src="/guide/video-script-quickstart-10s.mp4"
+              controls
+              autoPlay
+              muted
+              playsInline
+              preload="metadata"
+            />
+          </div>
+          <div className="pro-upsell-actions">
+            <button type="button" className="primary-button pro-upsell-cta" onClick={closeGuidePopup}>
+              {isVi ? "Bắt đầu tạo ngay" : "Start now"}
+            </button>
           </div>
         </div>
       </div>,
@@ -970,6 +1023,7 @@ export default function NextVideoScriptPage({ initialHistoryId = "" }) {
         </section>
       </section>
       {renderProUpsellPopup()}
+      {renderGuidePopup()}
       <NextSupportChatShell
         language={language}
         page="scriptVideoReview"

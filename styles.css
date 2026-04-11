@@ -2287,6 +2287,55 @@ html[data-theme="dark"] .pro-upsell-close {
   padding: 20px;
 }
 
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  background: rgba(19, 11, 4, 0.62);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.guide-modal {
+  position: relative;
+  width: min(820px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(185, 92, 16, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 242, 233, 0.96));
+  box-shadow: 0 24px 52px rgba(38, 22, 8, 0.26);
+  padding: 34px 22px 22px;
+  display: grid;
+  gap: 12px;
+}
+
+.guide-video-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(185, 92, 16, 0.24);
+  background: #0f0b08;
+}
+
+.guide-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0f0b08;
+}
+
+html[data-theme="dark"] .guide-modal {
+  border-color: rgba(255, 159, 183, 0.26);
+  background: linear-gradient(180deg, rgba(52, 40, 48, 0.96), rgba(38, 30, 38, 0.95));
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.42);
+}
+
+html[data-theme="dark"] .guide-video-wrap {
+  border-color: rgba(255, 178, 196, 0.24);
+  background: #120f15;
+}
+
 .pro-upsell-modal {
   position: relative;
   width: min(560px, 100%);
