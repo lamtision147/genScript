@@ -50,7 +50,10 @@ const MOCK_GENERATE_RESPONSE = {
       hashtags: ["#review", "#script"],
       shotList: ["Before/after", "Demo", "CTA"],
       openingStyle: 1,
-      variantStyleLabel: "So sánh trước/sau"
+      variantStyleLabel: "So sánh trước/sau",
+      styleLabel: "So sánh trước/sau",
+      historyId: "mock_video_hist_2",
+      variantGroupId: "mock_video_group_guide"
     }
   ],
   script: {
@@ -65,12 +68,39 @@ const MOCK_GENERATE_RESPONSE = {
     hashtags: ["#review", "#sellerstudio"],
     shotList: ["Hook nhanh", "Cận cảnh", "CTA"],
     openingStyle: 4,
-    variantStyleLabel: "Chuyên gia thuyết phục"
+    variantStyleLabel: "Chuyên gia thuyết phục",
+    styleLabel: "Chuyên gia thuyết phục",
+    historyId: "mock_video_hist_1",
+    variantGroupId: "mock_video_group_guide"
   }
 };
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function smoothMouseMove(page, from, to, steps = 22, totalMs = 520) {
+  const dx = (to.x - from.x) / steps;
+  const dy = (to.y - from.y) / steps;
+  for (let i = 1; i <= steps; i += 1) {
+    await page.mouse.move(from.x + dx * i, from.y + dy * i);
+    await delay(Math.max(8, Math.floor(totalMs / steps)));
+  }
+}
+
+async function clickWithFocusZoom(page, locator) {
+  const box = await locator.boundingBox();
+  if (!box) return;
+
+  const from = { x: Math.max(20, box.x - 80), y: Math.max(20, box.y - 60) };
+  const to = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await page.mouse.move(from.x, from.y);
+  await smoothMouseMove(page, from, to, 26, 600);
+  await delay(80);
+  await page.mouse.down();
+  await delay(70);
+  await page.mouse.up();
 }
 
 async function recordGuideVideo() {
@@ -109,17 +139,32 @@ async function recordGuideVideo() {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
   });
 
-  await page.route("**/api/generate-video-script", async (route) => {
+  await page.route("**/api/generate-video-script**", async (route) => {
     await delay(500);
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(MOCK_GENERATE_RESPONSE)
+      body: JSON.stringify({
+        ...MOCK_GENERATE_RESPONSE,
+        variants: MOCK_GENERATE_RESPONSE.variants.map((item, index) => ({
+          ...item,
+          historyId: item.historyId || `mock_video_hist_${index + 1}`,
+          variantGroupId: item.variantGroupId || "mock_video_group_guide"
+        }))
+      })
     });
   });
 
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 60000 });
-  await delay(900);
+  await delay(700);
+
+  await page.addStyleTag({
+    content: `
+      html { zoom: 1.15; }
+      body { scroll-behavior: auto !important; }
+    `
+  });
+  await delay(350);
 
   const langSelect = page.locator("#header-language");
   if (await langSelect.count()) {
@@ -127,36 +172,44 @@ async function recordGuideVideo() {
     await delay(500);
   }
 
-  await page.getByLabel("Tên sản phẩm").fill("Tai nghe HyperX Cloud");
-  await delay(300);
-  await page.getByLabel("Vấn đề chính của khách hàng").fill("Tai nghe hay nóng tai, mic rè khi call game");
-  await delay(300);
-  await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Đệm tai êm\nMic rõ\nKhung chắc");
-  await delay(300);
-  await page.getByLabel("Mức giá mục tiêu").fill("199k");
-  await delay(300);
+  const uploadLabel = page.getByText(/Kéo ảnh vào đây hoặc bấm để chọn/i).first();
+  if (await uploadLabel.count()) {
+    await clickWithFocusZoom(page, uploadLabel);
+  }
 
-  const variantSelect = page.getByLabel("Số bản nội dung");
-  if (await variantSelect.count()) {
-    await variantSelect.selectOption("2");
+  const dropInput = page.locator("input[type='file']").first();
+  await dropInput.setInputFiles({
+    name: "tai-nghe-hyperx-cloud.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2m8wAAAABJRU5ErkJggg==", "base64")
+  });
+  await delay(1200);
+
+  const productNameField = page.getByLabel("Tên sản phẩm");
+  await productNameField.click();
+  await delay(240);
+
+  await page.getByLabel("Vấn đề chính của khách hàng").fill("Tai nghe hay nóng tai, mic rè khi call game");
+  await delay(180);
+  await page.getByLabel("Điểm nổi bật sản phẩm (mỗi dòng 1 ý)").fill("Đệm tai êm\nMic rõ\nKhung chắc");
+  await delay(180);
+
+  const styleSelect = page.getByLabel("Phong cách nội dung").first();
+  if (await styleSelect.count()) {
+    await clickWithFocusZoom(page, styleSelect);
+    await styleSelect.selectOption("expert");
     await delay(250);
   }
 
-  await page.getByRole("button", { name: "Tạo kịch bản video" }).click();
-  await page.waitForSelector(".variant-toggle-row .variant-toggle", { timeout: 15000 });
-  await delay(1200);
-
-  const secondTab = page.locator(".variant-toggle-row .variant-toggle").nth(1);
-  if (await secondTab.count()) {
-    await secondTab.click();
-    await delay(1000);
+  const variantSelect = page.getByLabel("Số bản nội dung").first();
+  if (await variantSelect.count()) {
+    await variantSelect.selectOption("2");
+    await delay(220);
   }
 
-  const firstTab = page.locator(".variant-toggle-row .variant-toggle").nth(0);
-  if (await firstTab.count()) {
-    await firstTab.click();
-    await delay(1200);
-  }
+  const generateBtn = page.getByRole("button", { name: "Tạo kịch bản video" });
+  await clickWithFocusZoom(page, generateBtn);
+  await page.waitForTimeout(2300);
 
   await context.close();
   await browser.close();
